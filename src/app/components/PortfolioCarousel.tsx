@@ -1,129 +1,172 @@
 "use client";
 
-import useEmblaCarousel from "embla-carousel-react";
-import { Box, Card, CardContent, Typography, Button } from "@mui/material";
-import { useEffect, useState, useCallback } from "react";
+import React, { useRef } from "react";
+import {
+  StackedCarousel,
+  ResponsiveContainer,
+  StackedCarouselSlideProps,
+} from "react-stacked-center-carousel";
+import Fab from "@mui/material/Fab";
+import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import { Box, Typography, Card, Divider } from "@mui/material";
 
-const projects = [
-  { title: "Flight Tracker", description: "Track flights in real time" },
-  { title: "Weather App", description: "Weather forecasts" },
-  { title: "Todo App", description: "Task management" },
+type ProjectStat = {
+  label: string;
+  value: string;
+};
+
+type Project = {
+  title: string;
+  stats: ProjectStat[];
+};
+
+const projects: Project[] = [
+  {
+    title: "Flight Tracker",
+    stats: [
+      { label: "Current Flights", value: "123 in Sweden" },
+      { label: "Highest Altitude", value: "12,000 m" },
+      { label: "Average Delay", value: "5 min" },
+    ],
+  },
+  {
+    title: "Weather App",
+    stats: [
+      { label: "Location", value: "Stockholm" },
+      { label: "Temp", value: "-4°C" },
+      { label: "Humidity", value: "72%" },
+    ],
+  },
+  {
+    title: "Todo App",
+    stats: [
+      { label: "Tasks Today", value: "7" },
+      { label: "Completed", value: "4" },
+      { label: "Overdue", value: "1" },
+    ],
+  },
 ];
 
 export default function PortfolioCarousel() {
-  const cardWidth = 350;
-  const cardHeight = 500;
-  const sidePeek = 50;
-  const viewportWidth = cardWidth + sidePeek * 2;
+  const carouselRef = useRef<StackedCarousel | undefined>(undefined);
 
-  const [emblaRef, emblaApi] = useEmblaCarousel({
-    align: "center",
-    skipSnaps: false,
-    containScroll: "trimSnaps",
-  });
+  const SlideComponent = React.memo(function Slide({
+    data,
+    dataIndex,
+    isCenterSlide,
+    swipeTo,
+    slideIndex,
+  }: StackedCarouselSlideProps) {
+    const project = data[dataIndex] as Project;
 
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
+    return (
+      <Card
+        sx={{
+          width: "100%",
+          height: 500,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          justifyContent: "flex-start",
+          borderRadius: 3,
+          boxShadow: isCenterSlide
+            ? "0 16px 48px rgba(0,0,0,0.35)"
+            : "0 6px 20px rgba(0,0,0,0.2)",
+          cursor: isCenterSlide ? "default" : "pointer",
+          transform: isCenterSlide ? "scale(1)" : "scale(0.9)",
+          transition: "transform 0.3s ease",
+          bgcolor: "rgba(255,255,255,0.03)",
+          backdropFilter: "blur(22px)",
+          WebkitBackdropFilter: "blur(22px)",
+          textAlign: "left",
+          p: 3,
+        }}
+        onClick={() => {
+          if (!isCenterSlide) swipeTo(slideIndex);
+        }}
+      >
+        <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>
+          {project.title}
+        </Typography>
+        <Divider sx={{ width: "100%", mb: 2 }} />
 
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const onInit = () => setScrollSnaps(emblaApi.scrollSnapList());
-    const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
-
-    emblaApi.on("reInit", onInit);
-    emblaApi.on("select", onSelect);
-
-    onInit();
-    onSelect();
-  }, [emblaApi]);
-
-  const scrollTo = useCallback(
-    (index: number) => {
-      if (emblaApi) emblaApi.scrollTo(index);
-    },
-    [emblaApi],
-  );
-
-  return (
-    <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
-      <Box sx={{ width: viewportWidth, overflow: "visible" }}>
-        <Box ref={emblaRef} sx={{ overflow: "visible" }}>
-          <Box sx={{ display: "flex", gap: 16 }}>
-            {projects.map((p, i) => (
-              <Box
-                key={i}
-                sx={{
-                  flex: "0 0 auto",
-                  width: cardWidth,
-                  display: "flex",
-                  justifyContent: "center",
-                  transition: "transform 0.3s ease",
-                  transform: selectedIndex === i ? "scale(1.05)" : "scale(0.9)",
-                  zIndex: selectedIndex === i ? 1 : 0,
-                }}
-              >
-                <Card
-                  sx={{
-                    width: "100%",
-                    height: cardHeight,
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    background: "rgba(255,255,255,0.03)",
-                    backdropFilter: "blur(22px)",
-                    WebkitBackdropFilter: "blur(22px)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 6,
-                    boxShadow: "0 16px 48px rgba(0,0,0,0.35)",
-                  }}
-                >
-                  <CardContent>
-                    <Typography variant="h6" fontWeight={600}>
-                      {p.title}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 1 }}
-                    >
-                      {p.description}
-                    </Typography>
-                  </CardContent>
-                  <Box sx={{ p: 2 }}>
-                    <Button fullWidth variant="contained">
-                      Open
-                    </Button>
-                  </Box>
-                </Card>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-
-        <Box
-          sx={{ display: "flex", justifyContent: "center", mt: 4, gap: 1.5 }}
-        >
-          {scrollSnaps.map((_, i) => (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          {project.stats.map((stat: ProjectStat, i: number) => (
             <Box
               key={i}
-              component="button"
-              onClick={() => scrollTo(i)}
-              sx={{
-                width: 12,
-                height: 12,
-                borderRadius: "50%",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                backgroundColor:
-                  selectedIndex === i ? "primary.main" : "grey.600",
-              }}
-            />
+              sx={{ display: "flex", justifyContent: "space-between" }}
+            >
+              <Typography variant="body1" fontWeight={500}>
+                {stat.label}:
+              </Typography>
+              <Typography variant="body1">{stat.value}</Typography>
+            </Box>
           ))}
         </Box>
-      </Box>
+      </Card>
+    );
+  });
+
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+        position: "relative",
+        mt: 6,
+      }}
+    >
+      <ResponsiveContainer
+        carouselRef={carouselRef}
+        render={(width, carouselRef) => (
+          <StackedCarousel
+            ref={carouselRef}
+            slideComponent={SlideComponent}
+            slideWidth={500}
+            carouselWidth={width}
+            data={projects}
+            maxVisibleSlide={3}
+            disableSwipe={false}
+            customScales={[1, 0.85, 0.7]}
+            transitionTime={500}
+            fadeDistance={0.1}
+          />
+        )}
+      />
+
+      <Fab
+        size="small"
+        onClick={() => carouselRef.current?.goBack()}
+        sx={{
+          position: "absolute",
+          left: -20,
+          top: "50%",
+          transform: "translateY(-50%)",
+          backgroundColor: "#1976d2",
+          color: "#fff",
+          "&:hover": { backgroundColor: "#115293" },
+        }}
+      >
+        <KeyboardArrowLeftIcon />
+      </Fab>
+
+      <Fab
+        size="small"
+        onClick={() => carouselRef.current?.goNext()}
+        sx={{
+          position: "absolute",
+          right: -20,
+          top: "50%",
+          transform: "translateY(-50%)",
+          backgroundColor: "#1976d2",
+          color: "#fff",
+          "&:hover": { backgroundColor: "#115293" },
+        }}
+      >
+        <KeyboardArrowRightIcon />
+      </Fab>
     </Box>
   );
 }
