@@ -14,16 +14,31 @@ interface Props {
 const darkTheme = createTheme({
   palette: {
     mode: "dark",
+
     background: {
-      default: "#121212",
-      paper: "rgba(255, 255, 255, 0.05)",
+      default: "#0b0f14",
+      paper: "#121821",
     },
+
     primary: {
       main: "#90caf9",
     },
+
+    text: {
+      primary: "#e6edf3",
+      secondary: "#9da7b3",
+      disabled: "#6b7280",
+    },
+
+    divider: "rgba(255,255,255,0.08)",
   },
+
   typography: {
-    fontFamily: "Geist, Geist Mono, sans-serif",
+    fontFamily: "var(--font-geist-sans), sans-serif",
+  },
+
+  shape: {
+    borderRadius: 12,
   },
 });
 
