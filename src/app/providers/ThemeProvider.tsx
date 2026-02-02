@@ -9,9 +9,10 @@ import { ReactNode } from "react";
 
 interface Props {
   children: ReactNode;
+  theme?: "dark" | "light" | typeof darkTheme;
 }
 
-const darkTheme = createTheme({
+export const darkTheme = createTheme({
   palette: {
     mode: "dark",
 
@@ -42,9 +43,32 @@ const darkTheme = createTheme({
   },
 });
 
-export default function ThemeProvider({ children }: Props) {
+export const lightTheme = createTheme({
+  palette: {
+    mode: "light",
+    background: {
+      default: "#f5f5f5",
+      paper: "#ffffff",
+    },
+    primary: {
+      main: "#1976d2",
+    },
+    text: {
+      primary: "#1a1a1a",
+      secondary: "#555555",
+    },
+    divider: "rgba(0,0,0,0.08)",
+  },
+  shape: {
+    borderRadius: 12,
+  },
+});
+
+export default function ThemeProvider({ children, theme = "dark" }: Props) {
+  const selectedTheme =
+    theme === "dark" ? darkTheme : theme === "light" ? lightTheme : theme;
   return (
-    <MuiThemeProvider theme={darkTheme}>
+    <MuiThemeProvider theme={selectedTheme}>
       <CssBaseline />
       {children}
     </MuiThemeProvider>

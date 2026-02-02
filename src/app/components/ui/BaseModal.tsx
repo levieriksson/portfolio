@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, Box, IconButton } from "@mui/material";
+import { Dialog, Box, IconButton, useTheme } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import Grow from "@mui/material/Grow";
 
@@ -11,6 +11,7 @@ type BaseModalProps = {
 };
 
 export function BaseModal({ open, onClose, children }: BaseModalProps) {
+  const theme = useTheme();
   return (
     <Dialog
       open={open}
@@ -20,10 +21,10 @@ export function BaseModal({ open, onClose, children }: BaseModalProps) {
       maxWidth="md"
       fullWidth
       PaperProps={{
+        elevation: 0,
         sx: {
-          borderRadius: 4,
-          bgcolor: "rgba(15,15,25,0.9)",
-          backdropFilter: "blur(24px)",
+          borderRadius: 2,
+          bgcolor: theme.palette.background.paper,
           color: "white",
           p: 3,
         },
