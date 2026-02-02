@@ -1,0 +1,16 @@
+# .NET Core build outputs
+bin/
+obj/
+
+# SQLite database
+*.db
+
+# User secrets / environment files
+.env
+.env.local
+
+# VSCode settings
+.vscode/
+
+# Optional: logs
+*.log
