@@ -2,9 +2,10 @@
 
 import { Card, Typography } from "@mui/material";
 import { useTheme, alpha } from "@mui/material/styles";
+import React from "react";
 
 type StatCardProps = {
-  label: string;
+  label: React.ReactNode;
   value: string | number;
 };
 

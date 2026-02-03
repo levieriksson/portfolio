@@ -14,6 +14,7 @@ import { BaseModal } from "../ui/BaseModal";
 import { StatCard } from "../ui/StatCard";
 import { Project, projects } from "../../../../data/projects";
 import { SlideCard } from "./SlideCard";
+import { FlightTrackerLiveOverview } from "../FlightTracker/LiveOverview";
 
 export default function PortfolioCarousel() {
   const carouselRef = useRef<StackedCarousel>();
@@ -100,21 +101,25 @@ export default function PortfolioCarousel() {
 
             <Divider sx={{ borderColor: theme.palette.divider }} />
 
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: 3,
-              }}
-            >
-              {openProject.stats.map((stat) => (
-                <StatCard
-                  key={stat.label}
-                  label={stat.label}
-                  value={stat.value}
-                />
-              ))}
-            </Box>
+            {openProject.title.toLowerCase().includes("flight") ? (
+              <FlightTrackerLiveOverview />
+            ) : (
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, 1fr)",
+                  gap: 3,
+                }}
+              >
+                {openProject.stats.map((stat) => (
+                  <StatCard
+                    key={stat.label}
+                    label={stat.label}
+                    value={stat.value}
+                  />
+                ))}
+              </Box>
+            )}
           </Box>
         </BaseModal>
       )}
