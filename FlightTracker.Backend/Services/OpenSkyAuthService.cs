@@ -1,66 +1,72 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace FlightTracker.Backend.Services;
 
-public class OpenSkyAuthService
+public sealed class OpenSkyAuthService
 {
-    private readonly string _clientId;
-    private readonly string _clientSecret;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly OpenSkyOptions _options;
+    private readonly ILogger<OpenSkyAuthService> _logger;
+
+    private readonly SemaphoreSlim _lock = new(1, 1);
     private string? _accessToken;
     private DateTime _expiryUtc = DateTime.MinValue;
-    private readonly HttpClient _httpClient;
 
-    public OpenSkyAuthService(string clientId, string clientSecret)
+    public OpenSkyAuthService(
+        IHttpClientFactory httpClientFactory,
+        IOptions<OpenSkyOptions> options,
+        ILogger<OpenSkyAuthService> logger)
     {
-        _clientId = clientId;
-        _clientSecret = clientSecret;
-        _httpClient = new HttpClient();
+        _httpClientFactory = httpClientFactory;
+        _options = options.Value;
+        _logger = logger;
     }
 
-    public async Task<string> GetAccessTokenAsync()
+    public async Task<string> GetAccessTokenAsync(CancellationToken ct)
     {
         if (!string.IsNullOrEmpty(_accessToken) && DateTime.UtcNow < _expiryUtc)
             return _accessToken!;
 
+        await _lock.WaitAsync(ct);
         try
         {
+            if (!string.IsNullOrEmpty(_accessToken) && DateTime.UtcNow < _expiryUtc)
+                return _accessToken!;
+
+            var client = _httpClientFactory.CreateClient("opensky");
+
             var form = new Dictionary<string, string>
             {
                 { "grant_type", "client_credentials" },
-                { "client_id", _clientId },
-                { "client_secret", _clientSecret }
+                { "client_id", _options.Username },
+                { "client_secret", _options.Password }
             };
 
-            var request = new HttpRequestMessage(HttpMethod.Post,
-                "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token")
+            using var request = new HttpRequestMessage(HttpMethod.Post, _options.TokenUrl)
             {
                 Content = new FormUrlEncodedContent(form)
             };
 
-            var response = await _httpClient.SendAsync(request);
+            using var response = await client.SendAsync(request, ct);
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
             _accessToken = json.GetProperty("access_token").GetString();
-            var expiresIn = json.GetProperty("expires_in").GetInt32();
-            _expiryUtc = DateTime.UtcNow.AddSeconds(expiresIn - 30);
 
-            Console.WriteLine($"[Auth] Got token, expires in {expiresIn}s");
+            var expiresIn = json.GetProperty("expires_in").GetInt32();
+            _expiryUtc = DateTime.UtcNow.AddSeconds(Math.Max(30, expiresIn - 30));
+
+            _logger.LogInformation("OpenSky token acquired. Expires in {Seconds}s.", expiresIn);
             return _accessToken!;
         }
-        catch (Exception ex)
+        finally
         {
-            Console.WriteLine($"[Auth] Failed to get Bearer token: {ex.Message}");
-            throw;
+            _lock.Release();
         }
-    }
-
-    public async Task<HttpClient> GetAuthorizedClientAsync()
-    {
-        var token = await GetAccessTokenAsync();
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return _httpClient;
     }
 }
