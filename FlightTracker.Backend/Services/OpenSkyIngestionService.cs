@@ -1,100 +1,243 @@
 using FlightTracker.Backend.Data;
 using FlightTracker.Backend.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
+using System.Net.Http.Headers;
 
 namespace FlightTracker.Backend.Services;
 
-public class OpenSkyIngestionService : BackgroundService
+public sealed class OpenSkyIngestionService : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly OpenSkyAuthService _authService;
+    private readonly IServiceProvider _sp;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly OpenSkyAuthService _auth;
+    private readonly OpenSkyOptions _options;
+    private readonly ILogger<OpenSkyIngestionService> _logger;
 
-    // Sweden bounding box
-    private const double LatMin = 55.1331;
-    private const double LatMax = 69.0599;
-    private const double LonMin = 10.5931;
-    private const double LonMax = 24.1777;
-
-    public OpenSkyIngestionService(IServiceProvider serviceProvider)
+    public OpenSkyIngestionService(
+        IServiceProvider sp,
+        IHttpClientFactory httpClientFactory,
+        OpenSkyAuthService auth,
+        IOptions<OpenSkyOptions> options,
+        ILogger<OpenSkyIngestionService> logger)
     {
-        _serviceProvider = serviceProvider;
-
-        var clientId = Environment.GetEnvironmentVariable("OPENSKY_USERNAME")?.Trim();
-        var clientSecret = Environment.GetEnvironmentVariable("OPENSKY_PASSWORD")?.Trim();
-
-        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
-            throw new Exception("OpenSky credentials are missing in environment variables.");
-
-        _authService = new OpenSkyAuthService(clientId, clientSecret);
+        _sp = sp;
+        _httpClientFactory = httpClientFactory;
+        _auth = auth;
+        _options = options.Value;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
+        _logger.LogInformation("Ingestion started. Interval={Interval}s, GapClose={Gap}s",
+            _options.IntervalSeconds, _options.SessionGapSeconds);
+
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_options.IntervalSeconds));
+
+        // Run immediately once
+        await RunOnce(stoppingToken);
+
+        while (await timer.WaitForNextTickAsync(stoppingToken))
         {
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<FlightDbContext>();
-                var client = await _authService.GetAuthorizedClientAsync();
-
-                Console.WriteLine($"[Ingestion] Starting save to DB at {DateTime.UtcNow}...");
-
-                using var responseStream = await client.GetStreamAsync("https://opensky-network.org/api/states/all", stoppingToken);
-                using var doc = await JsonDocument.ParseAsync(responseStream, cancellationToken: stoppingToken);
-
-                if (!doc.RootElement.TryGetProperty("states", out var statesElement) || statesElement.ValueKind != JsonValueKind.Array)
-                {
-                    Console.WriteLine("[Ingestion] No states returned from API.");
-                }
-                else
-                {
-                    var snapshots = new List<AircraftSnapshot>();
-
-                    foreach (var stateArray in statesElement.EnumerateArray())
-                    {
-                        var latitude = stateArray[6].GetDoubleOrNull();
-                        var longitude = stateArray[5].GetDoubleOrNull();
-
-                        if (latitude == null || longitude == null)
-                            continue;
-
-                        if (latitude < LatMin || latitude > LatMax || longitude < LonMin || longitude > LonMax)
-                            continue;
-
-                        snapshots.Add(new AircraftSnapshot
-                        {
-                            Icao24 = stateArray[0].GetString() ?? "",
-                            Callsign = stateArray[1].GetString()?.Trim(),
-                            OriginCountry = stateArray[2].GetString() ?? "",
-                            Longitude = longitude,
-                            Latitude = latitude,
-                            Altitude = stateArray[7].GetDoubleOrNull(),
-                            Velocity = stateArray[9].GetDoubleOrNull(),
-                            TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(stateArray[4].GetInt64()).UtcDateTime
-                        });
-                    }
-
-                    await db.AircraftSnapshots.AddRangeAsync(snapshots, stoppingToken);
-                    await db.SaveChangesAsync(stoppingToken);
-
-                    Console.WriteLine($"[Ingestion] Completed save. {snapshots.Count} Swedish snapshots added at {DateTime.UtcNow}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Ingestion] Error: {ex.Message} at {DateTime.UtcNow}");
-            }
-
-            await Task.Delay(TimeSpan.FromMinutes(10), stoppingToken);
+            await RunOnce(stoppingToken);
         }
     }
-}
 
-// Helper extension to safely parse nullable doubles
-public static class JsonElementExtensions
-{
-    public static double? GetDoubleOrNull(this JsonElement element)
-        => element.ValueKind == JsonValueKind.Number ? element.GetDouble() : null;
+    private bool InSwedenBbox(double lat, double lon) =>
+        lat >= _options.LatMin && lat <= _options.LatMax &&
+        lon >= _options.LonMin && lon <= _options.LonMax;
+
+    private async Task RunOnce(CancellationToken ct)
+    {
+        try
+        {
+            using var scope = _sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<FlightDbContext>();
+
+            // build bbox-limited URL (server-side filter)
+            var statesUrl = $"{_options.StatesUrl}" +
+                            $"?lamin={_options.LatMin}&lamax={_options.LatMax}" +
+                            $"&lomin={_options.LonMin}&lomax={_options.LonMax}";
+
+            var token = await _auth.GetAccessTokenAsync(ct);
+            var client = _httpClientFactory.CreateClient("opensky");
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            _logger.LogInformation("Fetching states at {UtcNow}", DateTime.UtcNow);
+
+            using var stream = await client.GetStreamAsync(statesUrl, ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+            if (!doc.RootElement.TryGetProperty("states", out var states) || states.ValueKind != JsonValueKind.Array)
+            {
+                _logger.LogWarning("No states array returned.");
+                await CloseStaleSessionsAsync(db, DateTime.UtcNow, ct);
+                await db.SaveChangesAsync(ct);
+                return;
+            }
+
+            var snapshots = new List<AircraftSnapshot>(capacity: 2048);
+
+            foreach (var stateArray in states.EnumerateArray())
+            {
+                // OpenSky states format: [0]=icao24 [1]=callsign [2]=origin_country [4]=time_position [5]=lon [6]=lat [7]=baro_altitude [9]=velocity
+                var lat = stateArray[6].GetDoubleOrNull();
+                var lon = stateArray[5].GetDoubleOrNull();
+                if (lat is null || lon is null) continue;
+
+                // bbox should already filter, but keep a defensive check
+                if (!InSwedenBbox(lat.Value, lon.Value)) continue;
+
+                var tsUnix = stateArray[4].ValueKind == JsonValueKind.Number ? stateArray[4].GetInt64() : 0;
+                if (tsUnix <= 0) continue;
+
+                snapshots.Add(new AircraftSnapshot
+                {
+                    Icao24 = stateArray[0].GetString() ?? "",
+                    Callsign = stateArray[1].GetString()?.Trim(),
+                    OriginCountry = stateArray[2].GetString() ?? "",
+                    Longitude = lon,
+                    Latitude = lat,
+                    Altitude = stateArray[7].GetDoubleOrNull(),
+                    Velocity = stateArray[9].GetDoubleOrNull(),
+                    TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(tsUnix).UtcDateTime,
+                    InSweden = true // because our ingestion bbox represents “Sweden tracking area”
+                });
+            }
+
+            var nowUtc = DateTime.UtcNow;
+
+            // Always close stale sessions (even if no snapshots)
+            await CloseStaleSessionsAsync(db, nowUtc, ct);
+
+            if (snapshots.Count == 0)
+            {
+                _logger.LogInformation("No snapshots in bbox this tick.");
+                await db.SaveChangesAsync(ct);
+                return;
+            }
+
+            await SaveSnapshotsAndUpdateSessionsAsync(db, snapshots, nowUtc, ct);
+
+            _logger.LogInformation("Saved {Count} snapshots.", snapshots.Count);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // normal shutdown
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ingestion run failed.");
+        }
+    }
+
+    private async Task CloseStaleSessionsAsync(FlightDbContext db, DateTime nowUtc, CancellationToken ct)
+    {
+        var gap = TimeSpan.FromSeconds(_options.SessionGapSeconds);
+        var cutoff = nowUtc - gap;
+
+        var stale = await db.FlightSessions
+            .Where(s => s.IsActive && s.LastSeenUtc < cutoff)
+            .ToListAsync(ct);
+
+        foreach (var s in stale)
+        {
+            s.IsActive = false;
+            s.EndUtc = s.LastSeenUtc;
+            s.CloseReason = "gap_timeout";
+        }
+
+        if (stale.Count > 0)
+            _logger.LogInformation("Closed {Count} stale sessions.", stale.Count);
+    }
+
+    private async Task SaveSnapshotsAndUpdateSessionsAsync(
+        FlightDbContext db,
+        List<AircraftSnapshot> snapshots,
+        DateTime nowUtc,
+        CancellationToken ct)
+    {
+        var gap = TimeSpan.FromSeconds(_options.SessionGapSeconds);
+
+        var icaos = snapshots.Select(s => s.Icao24).Distinct().ToList();
+
+        var activeSessions = await db.FlightSessions
+            .Where(s => s.IsActive && icaos.Contains(s.Icao24))
+            .ToListAsync(ct);
+
+        var byIcao = activeSessions.ToDictionary(s => s.Icao24);
+
+        foreach (var group in snapshots
+            .GroupBy(s => s.Icao24)
+            .Select(g => new { Icao = g.Key, Items = g.OrderBy(x => x.TimestampUtc).ToList() }))
+        {
+            byIcao.TryGetValue(group.Icao, out var session);
+
+            foreach (var snap in group.Items)
+            {
+                if (session == null)
+                {
+                    session = NewSessionFromSnapshot(snap);
+                    db.FlightSessions.Add(session);
+                    byIcao[group.Icao] = session;
+                }
+                else if (snap.TimestampUtc - session.LastSeenUtc > gap)
+                {
+                    // close old
+                    session.IsActive = false;
+                    session.EndUtc = session.LastSeenUtc;
+                    session.CloseReason = "gap_timeout";
+
+                    // new
+                    session = NewSessionFromSnapshot(snap);
+                    db.FlightSessions.Add(session);
+                    byIcao[group.Icao] = session;
+                }
+
+                // attach
+                snap.FlightSession = session;
+                session.LastSeenUtc = snap.TimestampUtc;
+                session.SnapshotCount++;
+
+                if (!string.IsNullOrWhiteSpace(snap.Callsign))
+                    session.Callsign = snap.Callsign;
+
+                if (snap.Altitude is double alt)
+                {
+                    session.MaxAltitude = session.MaxAltitude.HasValue
+                        ? Math.Max(session.MaxAltitude.Value, alt)
+                        : alt;
+
+                    // running avg
+                    session.AvgAltitude = session.AvgAltitude.HasValue
+                        ? session.AvgAltitude + (alt - session.AvgAltitude.Value) / session.SnapshotCount
+                        : alt;
+                }
+
+                // Sweden entry time for "flights today"
+                session.EnteredSwedenUtc ??= snap.TimestampUtc;
+                session.ExitedSwedenUtc = null;
+            }
+        }
+
+        db.AircraftSnapshots.AddRange(snapshots);
+        await db.SaveChangesAsync(ct);
+    }
+
+    private FlightSession NewSessionFromSnapshot(AircraftSnapshot snap)
+        => new FlightSession
+        {
+            Icao24 = snap.Icao24,
+            Callsign = snap.Callsign,
+            FirstSeenUtc = snap.TimestampUtc,
+            LastSeenUtc = snap.TimestampUtc,
+            IsActive = true,
+            SnapshotCount = 0,
+            EnteredSwedenUtc = snap.InSweden ? snap.TimestampUtc : null
+        };
 }
