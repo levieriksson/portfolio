@@ -5,8 +5,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System.Text.Json;
+using System.Globalization;
 using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace FlightTracker.Backend.Services;
 
@@ -59,10 +60,11 @@ public sealed class OpenSkyIngestionService : BackgroundService
             using var scope = _sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<FlightDbContext>();
 
-            // build bbox-limited URL (server-side filter)
+            var inv = CultureInfo.InvariantCulture;
+
             var statesUrl = $"{_options.StatesUrl}" +
-                            $"?lamin={_options.LatMin}&lamax={_options.LatMax}" +
-                            $"&lomin={_options.LonMin}&lomax={_options.LonMax}";
+                            $"?lamin={_options.LatMin.ToString(inv)}&lamax={_options.LatMax.ToString(inv)}" +
+                            $"&lomin={_options.LonMin.ToString(inv)}&lomax={_options.LonMax.ToString(inv)}";
 
             var token = await _auth.GetAccessTokenAsync(ct);
             var client = _httpClientFactory.CreateClient("opensky");
@@ -70,7 +72,20 @@ public sealed class OpenSkyIngestionService : BackgroundService
 
             _logger.LogInformation("Fetching states at {UtcNow}", DateTime.UtcNow);
 
-            using var stream = await client.GetStreamAsync(statesUrl, ct);
+            using var resp = await client.GetAsync(statesUrl, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogError("OpenSky states request failed: {Status}. Url={Url}. Body={Body}",
+                    (int)resp.StatusCode, statesUrl, body);
+
+                // still close stale sessions even if fetch fails
+                await CloseStaleSessionsAsync(db, DateTime.UtcNow, ct);
+                await db.SaveChangesAsync(ct);
+                return;
+            }
+
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct);
             using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
 
             if (!doc.RootElement.TryGetProperty("states", out var states) || states.ValueKind != JsonValueKind.Array)
@@ -106,7 +121,10 @@ public sealed class OpenSkyIngestionService : BackgroundService
                     Altitude = stateArray[7].GetDoubleOrNull(),
                     Velocity = stateArray[9].GetDoubleOrNull(),
                     TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(tsUnix).UtcDateTime,
-                    InSweden = true // because our ingestion bbox represents “Sweden tracking area”
+
+                    // Right now, "InSweden" means "inside our ingestion bbox".
+                    // Later we can upgrade this to a Sweden polygon check.
+                    InSweden = true
                 });
             }
 

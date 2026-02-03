@@ -97,6 +97,8 @@ app.MapGet("/api/flights", async (string date, FlightDbContext db) =>
     return Results.Ok(sessions);
 });
 
+
+
 app.MapGet("/api/flights/{id:int}", async (int id, FlightDbContext db) =>
 {
     var session = await db.FlightSessions
@@ -104,6 +106,19 @@ app.MapGet("/api/flights/{id:int}", async (int id, FlightDbContext db) =>
         .FirstOrDefaultAsync(s => s.Id == id);
 
     return session is null ? Results.NotFound() : Results.Ok(session);
+});
+
+app.MapGet("/api/debug/ingestion", async (FlightDbContext db) =>
+{
+    var lastSnap = await db.AircraftSnapshots
+        .OrderByDescending(s => s.TimestampUtc)
+        .Select(s => s.TimestampUtc)
+        .FirstOrDefaultAsync();
+
+    var snapCount = await db.AircraftSnapshots.CountAsync();
+    var sessionCount = await db.FlightSessions.CountAsync();
+
+    return Results.Ok(new { lastSnapshotUtc = lastSnap, snapshots = snapCount, sessions = sessionCount });
 });
 
 app.Run();
