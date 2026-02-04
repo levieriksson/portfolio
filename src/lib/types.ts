@@ -27,3 +27,40 @@ export type FlightsPage = {
   total: number;
   items: FlightsPageItem[];
 };
+
+export type AircraftSnapshot = {
+  id: number;
+  icao24: string;
+  callsign: string | null;
+  originCountry: string;
+  latitude: number | null;
+  longitude: number | null;
+  altitude: number | null;
+  velocity: number | null;
+  timestampUtc: string;
+  flightSessionId: number | null;
+  inSweden: boolean;
+};
+
+export type FlightSessionDetails = {
+  id: number;
+  icao24: string;
+  callsign: string | null;
+
+  firstSeenUtc: string;
+  lastSeenUtc: string;
+
+  isActive: boolean;
+  endUtc: string | null;
+  closeReason: string | null;
+
+  snapshotCount: number;
+
+  maxAltitude: number | null;
+  avgAltitude: number | null;
+
+  enteredSwedenUtc: string | null;
+  exitedSwedenUtc: string | null;
+
+  snapshots: AircraftSnapshot[];
+};

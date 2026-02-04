@@ -3,19 +3,24 @@
 import { useEffect, useState } from "react";
 import {
   Box,
-  Divider,
   Tooltip,
   Accordion,
   AccordionSummary,
   AccordionDetails,
   Typography,
+  Collapse,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { StatCard } from "../ui/StatCard";
 import { apiGet } from "@/lib/api";
 import type { StatsOverview } from "@/lib/types";
-import { formatUtcDateTime, formatLocalDateTime } from "@/lib/datetime";
+import { formatLocalDateTime, utcTodayString } from "@/lib/datetime";
+
+import { FlightsBrowser } from "./FlightsBrowser";
+import { FlightDetailsDrawer } from "./FlightDetailsDrawer";
+
+const RADIUS = 1;
 
 function LabelWithHelp({ label, help }: { label: string; help: string }) {
   return (
@@ -31,6 +36,13 @@ function LabelWithHelp({ label, help }: { label: string; help: string }) {
 export function FlightTrackerLiveOverview() {
   const [data, setData] = useState<StatsOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [browserOpen, setBrowserOpen] = useState(false);
+  const [browserDate, setBrowserDate] = useState(utcTodayString());
+  const [browserActiveOnly, setBrowserActiveOnly] = useState(false);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -78,72 +90,162 @@ export function FlightTrackerLiveOverview() {
   const helpSessions =
     "Sessions = aggregated flight tracks built from snapshots. A session closes after a data gap.";
 
+  const openFlightsToday = () => {
+    setBrowserDate(utcTodayString());
+    setBrowserActiveOnly(false);
+    setBrowserOpen(true);
+  };
+
+  const openActiveNow = () => {
+    setBrowserDate(utcTodayString());
+    setBrowserActiveOnly(true);
+    setBrowserOpen(true);
+  };
+
+  const handleSelectSession = (id: number) => {
+    setSelectedId(id);
+    setDetailsOpen(true);
+  };
+
+  const lastSnapshotText = data.lastSnapshotUtc
+    ? formatLocalDateTime(data.lastSnapshotUtc)
+    : "—";
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: 3,
-        }}
-      >
-        <StatCard
-          label={
-            <LabelWithHelp label="Flights today" help={helpFlightsToday} />
-          }
-          value={data.flightsTodayInSweden}
-        />
-        <StatCard
-          label={<LabelWithHelp label="Active now" help={helpActiveNow} />}
-          value={data.activeFlightsInSweden}
-        />
-        <StatCard
-          label={<LabelWithHelp label="Snapshots" help={helpSnapshots} />}
-          value={data.snapshots}
-        />
-        <StatCard
-          label={<LabelWithHelp label="Sessions" help={helpSessions} />}
-          value={data.sessions}
-        />
-      </Box>
-
-      <Divider />
-
-      <Box sx={{ fontSize: 12, opacity: 0.75 }}>
-        Last snapshot:{" "}
-        {data.lastSnapshotUtc ? formatLocalDateTime(data.lastSnapshotUtc) : "—"}
-      </Box>
+      <Collapse in={!browserOpen} timeout={180} unmountOnExit>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 2,
+          }}
+        >
+          <StatCard
+            label={
+              <LabelWithHelp label="Flights today" help={helpFlightsToday} />
+            }
+            value={data.flightsTodayInSweden}
+            onClick={openFlightsToday}
+            borderRadius={RADIUS}
+          />
+          <StatCard
+            label={<LabelWithHelp label="Active now" help={helpActiveNow} />}
+            value={data.activeFlightsInSweden}
+            onClick={openActiveNow}
+            borderRadius={RADIUS}
+          />
+          <StatCard
+            label={<LabelWithHelp label="Snapshots" help={helpSnapshots} />}
+            value={data.snapshots}
+            borderRadius={RADIUS}
+          />
+          <StatCard
+            label={<LabelWithHelp label="Sessions" help={helpSessions} />}
+            value={data.sessions}
+            borderRadius={RADIUS}
+          />
+        </Box>
+      </Collapse>
 
       <Accordion
+        expanded={browserOpen}
+        onChange={(_, expanded) => setBrowserOpen(expanded)}
         elevation={0}
         sx={{
           bgcolor: "transparent",
-          border: "1px solid rgba(255,255,255,0.12)",
-          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: RADIUS,
           "&:before": { display: "none" },
         }}
       >
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="body2" sx={{ opacity: 0.9 }}>
-            What do these numbers mean?
-          </Typography>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          sx={{
+            minHeight: 40,
+            px: 2,
+            "& .MuiAccordionSummary-content": { my: 0.25 },
+          }}
+        >
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              width: "100%",
+              gap: 1.5,
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Browse flights
+            </Typography>
+
+            <Box sx={{ flex: 1 }} />
+
+            <Typography
+              variant="caption"
+              sx={{ opacity: 0.7, whiteSpace: "nowrap" }}
+            >
+              Last snapshot: {lastSnapshotText}
+            </Typography>
+          </Box>
         </AccordionSummary>
-        <AccordionDetails>
-          <Typography variant="body2" sx={{ opacity: 0.85, lineHeight: 1.6 }}>
-            <b>Flights today</b>: sessions first observed in the Sweden tracking
-            area during the current UTC day.
-            <br />
-            <b>Active now</b>: seen within the last <b>{cutoff} minutes</b>{" "}
-            (UTC).
-            <br />
-            <b>Snapshots</b>: raw samples (many per flight).
-            <br />
-            <b>Sessions</b>: aggregated tracks; closed after a data gap.
-            <br />
-            Data source: OpenSky. Coverage and update frequency can vary.
-          </Typography>
+
+        <AccordionDetails sx={{ pt: 0, pb: 2, px: 2 }}>
+          <FlightsBrowser
+            initialDate={browserDate}
+            initialActiveOnly={browserActiveOnly}
+            onSelectSession={handleSelectSession}
+          />
         </AccordionDetails>
       </Accordion>
+
+      <Collapse in={!browserOpen} timeout={180} unmountOnExit>
+        <Accordion
+          elevation={0}
+          sx={{
+            bgcolor: "transparent",
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: RADIUS,
+            "&:before": { display: "none" },
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon />}
+            sx={{
+              minHeight: 40,
+              px: 2,
+              "& .MuiAccordionSummary-content": { my: 0.25 },
+            }}
+          >
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              What do these numbers mean?
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0, px: 2 }}>
+            <Typography variant="body2" sx={{ opacity: 0.85, lineHeight: 1.6 }}>
+              <b>Flights today</b>: sessions first observed inside the Sweden
+              tracking area during the current UTC day.
+              <br />
+              <b>Active now</b>: seen within the last <b>{cutoff} minutes</b>{" "}
+              (UTC).
+              <br />
+              <b>Snapshots</b>: raw samples (many per flight).
+              <br />
+              <b>Sessions</b>: aggregated tracks; closed after a data gap.
+              <br />
+              Data source: OpenSky. Coverage and update frequency can vary.
+            </Typography>
+          </AccordionDetails>
+        </Accordion>
+      </Collapse>
+
+      <FlightDetailsDrawer
+        open={detailsOpen}
+        sessionId={selectedId}
+        onClose={() => setDetailsOpen(false)}
+      />
     </Box>
   );
 }
