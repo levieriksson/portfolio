@@ -1,4 +1,5 @@
 using FlightTracker.Backend.Data;
+using FlightTracker.Backend.Infrastructure.Json;
 using FlightTracker.Backend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,10 @@ builder.Services.AddDbContext<FlightDbContext>(options =>
 builder.Services.AddHttpClient("opensky");
 builder.Services.AddScoped<AircraftCsvImporter>();
 builder.Services.AddHostedService<AircraftImportHostedService>();
-
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.Converters.Add(new AssumeUtcDateTimeConverter());
+});
 builder.Services.AddSingleton<OpenSkyAuthService>();
 builder.Services.AddHostedService<DbMigrationHostedService>();
 builder.Services.AddHostedService<OpenSkyIngestionService>();

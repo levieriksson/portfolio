@@ -1,5 +1,11 @@
+function normalizeUtcIso(iso: string): string {
+  if (/[zZ]$/.test(iso)) return iso;
+  if (/[+\-]\d{2}:\d{2}$/.test(iso)) return iso;
+  return `${iso}Z`;
+}
+
 export function formatUtcDateTime(iso: string): string {
-  const d = new Date(iso);
+  const d = new Date(normalizeUtcIso(iso));
 
   return d.toLocaleString(undefined, {
     year: "numeric",
@@ -20,7 +26,7 @@ export function utcTodayString(date = new Date()): string {
 }
 
 export function formatLocalDateTime(iso: string): string {
-  const d = new Date(iso);
+  const d = new Date(normalizeUtcIso(iso));
   return d.toLocaleString(undefined, {
     year: "numeric",
     month: "2-digit",
@@ -32,9 +38,9 @@ export function formatLocalDateTime(iso: string): string {
 }
 
 export function formatSvLocalDateTime(utcIso: string): string {
-  const d = new Date(utcIso);
+  const d = new Date(normalizeUtcIso(utcIso));
 
-  const parts = new Intl.DateTimeFormat("sv-SE", {
+  const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Stockholm",
     year: "numeric",
     month: "2-digit",
@@ -58,10 +64,10 @@ export function stockholmTodayString(): string {
   }).format(new Date());
 }
 
-export function formatLastSeenSmartSv(utcIso: string): string {
-  const d = new Date(utcIso);
-
+export function formatLastSeenSmartEn(utcIso: string): string {
+  const d = new Date(normalizeUtcIso(utcIso));
   const now = new Date();
+
   const stockholmYMD = (x: Date) =>
     new Intl.DateTimeFormat("en-CA", {
       timeZone: "Europe/Stockholm",
@@ -77,16 +83,19 @@ export function formatLastSeenSmartSv(utcIso: string): string {
   yesterday.setDate(now.getDate() - 1);
   const ymdYesterday = stockholmYMD(yesterday);
 
-  const time = new Intl.DateTimeFormat("sv-SE", {
+  const time = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Europe/Stockholm",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).format(d);
 
-  if (ymdD === ymdNow) return `Idag ${time}`;
-  if (ymdD === ymdYesterday) return `Igår ${time}`;
+  if (ymdD === ymdNow) return `Today ${time}`;
+  if (ymdD === ymdYesterday) return `Yesterday ${time}`;
 
-  const dateTime = formatSvLocalDateTime(utcIso);
-  return dateTime;
+  return `${ymdD} ${time}`;
+}
+
+export function formatStockholmDateTime(utcIso: string): string {
+  return formatSvLocalDateTime(utcIso);
 }
