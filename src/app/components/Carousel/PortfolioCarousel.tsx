@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, RefObject } from "react";
+import React, { useRef, useState } from "react";
 import {
   StackedCarousel,
   ResponsiveContainer,
@@ -9,7 +9,7 @@ import {
 import Fab from "@mui/material/Fab";
 import KeyboardArrowLeftIcon from "@mui/icons-material/KeyboardArrowLeft";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
-import { Box, Divider, useTheme } from "@mui/material";
+import { Box, Typography, useTheme } from "@mui/material";
 import { BaseModal } from "../ui/BaseModal";
 import { StatCard } from "../ui/StatCard";
 import { Project, projects } from "../../../../data/projects";
@@ -17,9 +17,12 @@ import { SlideCard } from "./SlideCard";
 import { FlightTrackerLiveOverview } from "../FlightTracker/LiveOverview";
 
 export default function PortfolioCarousel() {
-  const carouselRef = useRef<StackedCarousel>();
+  const carouselRef = useRef<StackedCarousel | null>(null);
   const [openProject, setOpenProject] = useState<Project | null>(null);
   const theme = useTheme();
+
+  const isFlightProject =
+    openProject?.title.toLowerCase().includes("flight") ?? false;
 
   return (
     <Box
@@ -32,7 +35,9 @@ export default function PortfolioCarousel() {
       }}
     >
       <ResponsiveContainer
-        carouselRef={carouselRef}
+        carouselRef={
+          carouselRef as unknown as React.MutableRefObject<StackedCarousel>
+        }
         render={(width) => (
           <StackedCarousel
             ref={carouselRef}
@@ -91,24 +96,28 @@ export default function PortfolioCarousel() {
 
       {openProject && (
         <BaseModal open={!!openProject} onClose={() => setOpenProject(null)}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <Box>
-              <h2 style={{ margin: 0 }}>{openProject.title}</h2>
-              <p style={{ margin: 0, color: theme.palette.text.secondary }}>
-                Live overview and statistics
-              </p>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box sx={{ pr: 6 }}>
+              <Typography variant="h6" sx={{ m: 0, lineHeight: 1.1 }}>
+                {openProject.title}
+              </Typography>
+
+              <Typography
+                variant="caption"
+                sx={{ color: theme.palette.text.secondary }}
+              >
+                {isFlightProject ? "Live flight stats" : "Project overview"}
+              </Typography>
             </Box>
 
-            <Divider sx={{ borderColor: theme.palette.divider }} />
-
-            {openProject.title.toLowerCase().includes("flight") ? (
+            {isFlightProject ? (
               <FlightTrackerLiveOverview />
             ) : (
               <Box
                 sx={{
                   display: "grid",
                   gridTemplateColumns: "repeat(2, 1fr)",
-                  gap: 3,
+                  gap: 2,
                 }}
               >
                 {openProject.stats.map((stat) => (
@@ -116,6 +125,7 @@ export default function PortfolioCarousel() {
                     key={stat.label}
                     label={stat.label}
                     value={stat.value}
+                    borderRadius={1}
                   />
                 ))}
               </Box>

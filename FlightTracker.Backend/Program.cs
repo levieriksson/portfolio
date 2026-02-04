@@ -2,6 +2,7 @@ using FlightTracker.Backend.Data;
 using FlightTracker.Backend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -94,8 +95,39 @@ app.MapGet("/api/stats/today", async (FlightDbContext db) =>
 app.MapGet("/api/flights/{id:int}", async (int id, FlightDbContext db) =>
 {
     var session = await db.FlightSessions
-        .Include(s => s.Snapshots)
-        .FirstOrDefaultAsync(s => s.Id == id);
+        .AsNoTracking()
+        .Where(s => s.Id == id)
+        .Select(s => new
+        {
+            s.Id,
+            s.Icao24,
+            s.Callsign,
+            s.FirstSeenUtc,
+            s.LastSeenUtc,
+            s.EndUtc,
+            s.IsActive,
+            s.SnapshotCount,
+            s.MaxAltitude,
+            s.AvgAltitude,
+            s.EnteredSwedenUtc,
+            s.ExitedSwedenUtc,
+            s.CloseReason,
+            snapshots = s.Snapshots
+                .OrderBy(x => x.TimestampUtc)
+                .Select(x => new
+                {
+                    x.Id,
+                    x.TimestampUtc,
+                    x.Latitude,
+                    x.Longitude,
+                    x.Altitude,
+                    x.Velocity,
+                    x.Callsign,
+                    x.OriginCountry
+                })
+                .ToList()
+        })
+        .FirstOrDefaultAsync();
 
     return session is null ? Results.NotFound() : Results.Ok(session);
 });
@@ -161,27 +193,73 @@ app.MapGet("/api/flights", async (
     string date,
     int page,
     int pageSize,
+    bool? activeOnly,
+    string? q,
+    string? sort,
     FlightDbContext db) =>
 {
-    if (!DateTime.TryParse(date, out var parsed))
+
+    if (!DateTime.TryParseExact(
+            date,
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var parsed))
+    {
         return Results.BadRequest("Invalid date. Use YYYY-MM-DD.");
+    }
 
     if (page < 1) page = 1;
-    if (pageSize < 1) pageSize = 50;
+    if (pageSize < 1) pageSize = 25;
     if (pageSize > 200) pageSize = 200;
+
 
     var dayStart = DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc);
     var dayEnd = dayStart.AddDays(1);
 
+    var utcNow = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
+
+    const int activeCutoffMinutes = 25;
+    var cutoff = utcNow.AddMinutes(-activeCutoffMinutes);
+
+
     var query = db.FlightSessions
-        .Where(s => s.EnteredSwedenUtc != null &&
-                    s.EnteredSwedenUtc >= dayStart &&
-                    s.EnteredSwedenUtc < dayEnd);
+        .AsNoTracking()
+        .Where(s =>
+            s.EnteredSwedenUtc != null &&
+            s.EnteredSwedenUtc >= dayStart &&
+            s.EnteredSwedenUtc < dayEnd);
+
+
+    if (!string.IsNullOrWhiteSpace(q))
+    {
+        var term = q.Trim();
+
+
+        query = query.Where(s =>
+            (s.Callsign != null &&
+             EF.Functions.Like(EF.Functions.Collate(s.Callsign, "NOCASE"), $"%{term}%")) ||
+            EF.Functions.Like(EF.Functions.Collate(s.Icao24, "NOCASE"), $"%{term}%"));
+    }
+
+
+    if (activeOnly == true)
+    {
+        query = query.Where(s => s.IsActive && s.LastSeenUtc >= cutoff);
+    }
+
+
+    query = (sort ?? "lastSeenDesc") switch
+    {
+        "firstSeenAsc" => query.OrderBy(s => s.FirstSeenUtc),
+        "firstSeenDesc" => query.OrderByDescending(s => s.FirstSeenUtc),
+        "lastSeenAsc" => query.OrderBy(s => s.LastSeenUtc),
+        _ => query.OrderByDescending(s => s.LastSeenUtc),
+    };
 
     var total = await query.CountAsync();
 
     var items = await query
-        .OrderByDescending(s => s.FirstSeenUtc)
         .Skip((page - 1) * pageSize)
         .Take(pageSize)
         .Select(s => new
@@ -204,6 +282,7 @@ app.MapGet("/api/flights", async (
         page,
         pageSize,
         total,
+        activeNowCutoffMinutes = activeCutoffMinutes, // useful for UI labels
         items
     });
 });
