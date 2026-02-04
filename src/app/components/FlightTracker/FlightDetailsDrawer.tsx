@@ -12,24 +12,12 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api";
+import type { FlightSessionDetails } from "@/lib/types";
 
 type FlightDetailsDrawerProps = {
   open: boolean;
   sessionId: number | null;
   onClose: () => void;
-};
-
-type FlightSessionDetails = {
-  id: number;
-  icao24: string;
-  callsign: string | null;
-  firstSeenUtc: string;
-  lastSeenUtc: string;
-  endUtc: string | null;
-  isActive: boolean;
-  snapshotCount: number;
-  maxAltitude: number | null;
-  closeReason: string | null;
 };
 
 function formatIsoLocalStockholm(utcIso: string): string {
@@ -51,6 +39,14 @@ function formatIsoLocalStockholm(utcIso: string): string {
   }).format(d);
 
   return `${get("year")}-${get("month")}-${get("day")} ${time}`;
+}
+
+function Line({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <Typography variant="body2">
+      <b>{label}:</b> {value}
+    </Typography>
+  );
 }
 
 export function FlightDetailsDrawer({
@@ -92,6 +88,20 @@ export function FlightDetailsDrawer({
       mounted = false;
     };
   }, [open, sessionId]);
+
+  const aircraft = data?.aircraft ?? null;
+
+  const operator =
+    aircraft?.operatorName?.trim() || aircraft?.operatorIcao?.trim() || "";
+
+  const showAircraftSection =
+    Boolean(aircraft?.typeCode?.trim()) ||
+    Boolean(aircraft?.manufacturerName?.trim()) ||
+    Boolean(aircraft?.model?.trim()) ||
+    Boolean(aircraft?.registration?.trim()) ||
+    Boolean(aircraft?.country?.trim()) ||
+    Boolean(operator) ||
+    Boolean(aircraft?.categoryDescription?.trim());
 
   return (
     <Drawer
@@ -151,6 +161,7 @@ export function FlightDetailsDrawer({
 
         {!loading && !err && data && (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+            {/* Top line */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
                 {data.callsign?.trim() || "—"}
@@ -168,33 +179,72 @@ export function FlightDetailsDrawer({
               />
             </Box>
 
+            {/* Aircraft metadata */}
+            {showAircraftSection && (
+              <>
+                <Divider />
+                <Typography variant="caption" sx={{ opacity: 0.75 }}>
+                  Aircraft
+                </Typography>
+
+                {aircraft?.typeCode?.trim() && (
+                  <Line label="Type" value={aircraft.typeCode} />
+                )}
+
+                {aircraft?.manufacturerName?.trim() && (
+                  <Line
+                    label="Manufacturer"
+                    value={aircraft.manufacturerName}
+                  />
+                )}
+
+                {aircraft?.model?.trim() && (
+                  <Line label="Model" value={aircraft.model} />
+                )}
+
+                {aircraft?.registration?.trim() && (
+                  <Line label="Registration" value={aircraft.registration} />
+                )}
+
+                {aircraft?.country?.trim() && (
+                  <Line label="Country" value={aircraft.country} />
+                )}
+
+                {operator && <Line label="Operator" value={operator} />}
+
+                {aircraft?.categoryDescription?.trim() && (
+                  <Line label="Category" value={aircraft.categoryDescription} />
+                )}
+              </>
+            )}
+
             <Divider />
 
-            <Typography variant="body2">
-              <b>First seen:</b> {formatIsoLocalStockholm(data.firstSeenUtc)}
-            </Typography>
-            <Typography variant="body2">
-              <b>Last seen:</b> {formatIsoLocalStockholm(data.lastSeenUtc)}
-            </Typography>
-            <Typography variant="body2">
-              <b>End:</b>{" "}
-              {data.endUtc ? formatIsoLocalStockholm(data.endUtc) : "—"}
-            </Typography>
+            <Line
+              label="First seen"
+              value={formatIsoLocalStockholm(data.firstSeenUtc)}
+            />
+            <Line
+              label="Last seen"
+              value={formatIsoLocalStockholm(data.lastSeenUtc)}
+            />
+            <Line
+              label="End"
+              value={data.endUtc ? formatIsoLocalStockholm(data.endUtc) : "—"}
+            />
 
             <Divider />
 
-            <Typography variant="body2">
-              <b>Samples:</b> {data.snapshotCount}
-            </Typography>
-            <Typography variant="body2">
-              <b>Max altitude:</b>{" "}
-              {data.maxAltitude == null
-                ? "—"
-                : `${Math.round(data.maxAltitude)} m`}
-            </Typography>
-            <Typography variant="body2">
-              <b>Close reason:</b> {data.closeReason ?? "—"}
-            </Typography>
+            <Line label="Samples" value={data.snapshotCount} />
+            <Line
+              label="Max altitude"
+              value={
+                data.maxAltitude == null
+                  ? "—"
+                  : `${Math.round(data.maxAltitude)} m`
+              }
+            />
+            <Line label="Close reason" value={data.closeReason ?? "—"} />
           </Box>
         )}
       </Box>
