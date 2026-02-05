@@ -18,6 +18,7 @@ import {
   TableContainer,
   IconButton,
   Tooltip,
+  Skeleton,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
@@ -193,6 +194,10 @@ export function FlightsBrowser({
       ? Math.min(data.total, (data.page - 1) * data.pageSize + items.length)
       : 0;
 
+  // IMPORTANT: This is the key for "no jank"
+  // - If we're loading and have no data yet, show skeleton rows
+  const showSkeleton = loading && !data;
+
   const openNativePicker = () => {
     const el = dateInputRef.current;
     if (!el) return;
@@ -210,12 +215,13 @@ export function FlightsBrowser({
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.75 }}>
+      {/* Controls */}
       <Box
         sx={{
           display: "grid",
           gridTemplateColumns: { xs: "1fr", md: "240px 1fr auto" },
-          gap: 1.5,
+          gap: 1.75,
           alignItems: "center",
         }}
       >
@@ -286,127 +292,161 @@ export function FlightsBrowser({
         />
       </Box>
 
-      {loading && (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <CircularProgress size={16} />
-          <Typography variant="body2" sx={{ opacity: 0.8 }}>
-            Loading flights…
-          </Typography>
-        </Box>
-      )}
-
+      {/* Error only (spinner handled inside reserved area too) */}
       {err && (
         <Typography variant="body2" sx={{ color: "error.main" }}>
           Failed to load flights: {err}
         </Typography>
       )}
 
-      {!loading && !err && data && (
-        <>
-          <Paper
-            variant="outlined"
-            sx={{
-              borderColor: "divider",
-              borderRadius: 0,
-              overflow: "hidden",
-              bgcolor: "background.paper",
-            }}
+      {/* Table always rendered to reserve height */}
+      <Paper
+        variant="outlined"
+        sx={{
+          borderColor: "divider",
+          borderRadius: 0,
+          overflow: "hidden",
+          bgcolor: "background.paper",
+        }}
+      >
+        <TableContainer
+          sx={{
+            // Reserve space to prevent modal resize jank
+            minHeight: 420,
+          }}
+        >
+          <Table
+            size="small"
+            sx={(theme) => ({
+              "& th": {
+                fontWeight: 600,
+                fontSize: 12,
+                letterSpacing: "0.02em",
+                opacity: 0.85,
+                bgcolor: alpha(theme.palette.text.primary, 0.04),
+              },
+              "& td": { fontWeight: 400, fontSize: 13 },
+              "& th, & td": { py: 0.75, lineHeight: 1.3 },
+
+              "& tbody tr:nth-of-type(odd)": {
+                bgcolor: alpha(theme.palette.text.primary, 0.012),
+              },
+
+              // Hover should be distinct from zebra rows (you already tuned this well)
+              "& tbody tr:hover": {
+                bgcolor: alpha(theme.palette.primary.main, 0.12),
+              },
+            })}
           >
-            <TableContainer>
-              <Table
-                size="small"
-                sx={(theme) => ({
-                  "& th": {
-                    fontWeight: 600,
-                    fontSize: 12,
-                    letterSpacing: "0.02em",
-                    opacity: 0.85,
-                    bgcolor: alpha(theme.palette.text.primary, 0.04),
-                  },
-                  "& td": { fontWeight: 400, fontSize: 13 },
+            <TableHead>
+              <TableRow>
+                <TableCell>Callsign</TableCell>
+                <TableCell>ICAO24</TableCell>
+                <TableCell>Last seen</TableCell>
+                <TableCell>
+                  <HeaderWithTip
+                    label="Duration"
+                    tip="Approx. time between first and last observation for this session."
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <HeaderWithTip
+                    label="Samples"
+                    tip="Number of position updates ingested for this session."
+                  />
+                </TableCell>
+                <TableCell align="right">Max altitude</TableCell>
+                <TableCell align="right">Status</TableCell>
+              </TableRow>
+            </TableHead>
 
-                  "& th, & td": { py: 0.75, lineHeight: 1.3 },
-
-                  "& tbody tr:nth-of-type(odd)": {
-                    bgcolor: alpha(theme.palette.text.primary, 0.012),
-                  },
-
-                  "& tbody tr:hover": {
-                    bgcolor: alpha(theme.palette.primary.main, 0.12),
-                  },
-                })}
-              >
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Callsign</TableCell>
-                    <TableCell>ICAO24</TableCell>
-                    <TableCell>Last seen</TableCell>
-                    <TableCell>
-                      <HeaderWithTip
-                        label="Duration"
-                        tip="Approx. time between first and last observation for this session."
-                      />
+            <TableBody>
+              {/* Skeleton state on first load */}
+              {showSkeleton &&
+                Array.from({ length: 9 }).map((_, i) => (
+                  <TableRow key={`sk-${i}`}>
+                    <TableCell sx={{ py: 0.75 }}>
+                      <Skeleton width="60%" />
                     </TableCell>
-                    <TableCell align="right">
-                      <HeaderWithTip
-                        label="Samples"
-                        tip="Number of position updates ingested for this session."
-                      />
+                    <TableCell sx={{ py: 0.75 }}>
+                      <Skeleton width="55%" />
                     </TableCell>
-                    <TableCell align="right">Max altitude</TableCell>
-                    <TableCell align="right">Status</TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      <Skeleton width="70%" />
+                    </TableCell>
+                    <TableCell sx={{ py: 0.75 }}>
+                      <Skeleton width="45%" />
+                    </TableCell>
+                    <TableCell align="right" sx={{ py: 0.75 }}>
+                      <Skeleton width="35%" />
+                    </TableCell>
+                    <TableCell align="right" sx={{ py: 0.75 }}>
+                      <Skeleton width="50%" />
+                    </TableCell>
+                    <TableCell align="right" sx={{ py: 0.75 }}>
+                      <Skeleton width="40%" />
+                    </TableCell>
                   </TableRow>
-                </TableHead>
+                ))}
 
-                <TableBody>
-                  {items.map((row) => (
-                    <FlightRow
-                      key={row.id}
-                      row={row}
-                      onClick={() => onSelectSession(row.id)}
-                    />
-                  ))}
+              {/* Loading but we already have data: keep showing existing rows
+                  (optional spinner shown in footer) */}
+              {!showSkeleton &&
+                items.map((row) => (
+                  <FlightRow
+                    key={row.id}
+                    row={row}
+                    onClick={() => onSelectSession(row.id)}
+                  />
+                ))}
 
-                  {items.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7}>
-                        <Typography variant="body2" sx={{ opacity: 0.75 }}>
-                          No flights match your filters.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
+              {/* Empty state */}
+              {!showSkeleton && data && items.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <Typography variant="body2" sx={{ opacity: 0.75 }}>
+                      No flights match your filters.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 2,
-              pt: 0.5,
-            }}
-          >
-            <Typography variant="caption" sx={{ opacity: 0.75 }}>
-              {data.total === 0
+      {/* Footer (always reserves height to avoid pop-in) */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 2,
+          pt: 0.25,
+          minHeight: 32,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {loading && <CircularProgress size={14} sx={{ opacity: 0.8 }} />}
+
+          <Typography variant="caption" sx={{ opacity: 0.75 }}>
+            {!data
+              ? "Loading…"
+              : data.total === 0
                 ? "No matches"
                 : `${showingFrom}–${showingTo} of ${data.total}`}
-            </Typography>
+          </Typography>
+        </Box>
 
-            {totalPages > 1 && (
-              <Pagination
-                count={totalPages}
-                page={data.page}
-                onChange={(_, p) => setPage(p)}
-                size="small"
-              />
-            )}
-          </Box>
-        </>
-      )}
+        {data && totalPages > 1 && (
+          <Pagination
+            count={totalPages}
+            page={data.page}
+            onChange={(_, p) => setPage(p)}
+            size="small"
+          />
+        )}
+      </Box>
     </Box>
   );
 }

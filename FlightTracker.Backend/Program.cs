@@ -1,11 +1,11 @@
 using FlightTracker.Backend.Data;
+using FlightTracker.Backend.Infrastructure.Json;
 using FlightTracker.Backend.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
-
 
 builder.Host.UseWindowsService();
 builder.Logging.ClearProviders();
@@ -33,10 +33,13 @@ var dbPath = Path.Combine(dataDir, "flights.db");
 builder.Services.AddDbContext<FlightDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
 
-
 builder.Services.AddHttpClient("opensky");
-
-
+builder.Services.AddScoped<AircraftCsvImporter>();
+builder.Services.AddHostedService<AircraftImportHostedService>();
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.Converters.Add(new AssumeUtcDateTimeConverter());
+});
 builder.Services.AddSingleton<OpenSkyAuthService>();
 builder.Services.AddHostedService<DbMigrationHostedService>();
 builder.Services.AddHostedService<OpenSkyIngestionService>();
@@ -49,7 +52,6 @@ builder.Services.AddCors(options =>
                 "http://localhost:3000",
                 "https://levieriksson.dev",
                 "https://www.levieriksson.dev"
-
             )
             .AllowAnyHeader()
             .AllowAnyMethod();
@@ -88,10 +90,7 @@ app.MapGet("/api/stats/today", async (FlightDbContext db) =>
     });
 });
 
-
-
-
-
+/// Details: include aircraft metadata (typecode/model/operator/etc.)
 app.MapGet("/api/flights/{id:int}", async (int id, FlightDbContext db) =>
 {
     var session = await db.FlightSessions
@@ -112,6 +111,22 @@ app.MapGet("/api/flights/{id:int}", async (int id, FlightDbContext db) =>
             s.EnteredSwedenUtc,
             s.ExitedSwedenUtc,
             s.CloseReason,
+
+            aircraft = db.AircraftMetadata
+                .Where(a => a.Icao24 == s.Icao24)
+                .Select(a => new
+                {
+                    a.TypeCode,
+                    a.ManufacturerName,
+                    a.Model,
+                    a.Registration,
+                    a.OperatorIcao,
+                    a.OperatorName,
+                    a.Country,
+                    a.CategoryDescription
+                })
+                .FirstOrDefault(),
+
             snapshots = s.Snapshots
                 .OrderBy(x => x.TimestampUtc)
                 .Select(x => new
@@ -143,6 +158,14 @@ app.MapGet("/api/debug/ingestion", async (FlightDbContext db) =>
     var sessionCount = await db.FlightSessions.CountAsync();
 
     return Results.Ok(new { lastSnapshotUtc = lastSnap, snapshots = snapCount, sessions = sessionCount });
+});
+
+/// Optional: quick verification that metadata exists + last import state
+app.MapGet("/api/debug/aircraft-import", async (FlightDbContext db) =>
+{
+    var aircraftRows = await db.AircraftMetadata.CountAsync();
+    var state = await db.AircraftImportStates.AsNoTracking().FirstOrDefaultAsync(x => x.Id == 1);
+    return Results.Ok(new { aircraftRows, state });
 });
 
 app.MapGet("/api/stats/overview", async (FlightDbContext db) =>
@@ -188,7 +211,7 @@ app.MapGet("/api/stats/overview", async (FlightDbContext db) =>
     });
 });
 
-
+/// List: include lightweight aircraft metadata (typecode/operator/model)
 app.MapGet("/api/flights", async (
     string date,
     int page,
@@ -198,7 +221,6 @@ app.MapGet("/api/flights", async (
     string? sort,
     FlightDbContext db) =>
 {
-
     if (!DateTime.TryParseExact(
             date,
             "yyyy-MM-dd",
@@ -213,7 +235,6 @@ app.MapGet("/api/flights", async (
     if (pageSize < 1) pageSize = 25;
     if (pageSize > 200) pageSize = 200;
 
-
     var dayStart = DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc);
     var dayEnd = dayStart.AddDays(1);
 
@@ -222,7 +243,6 @@ app.MapGet("/api/flights", async (
     const int activeCutoffMinutes = 25;
     var cutoff = utcNow.AddMinutes(-activeCutoffMinutes);
 
-
     var query = db.FlightSessions
         .AsNoTracking()
         .Where(s =>
@@ -230,11 +250,9 @@ app.MapGet("/api/flights", async (
             s.EnteredSwedenUtc >= dayStart &&
             s.EnteredSwedenUtc < dayEnd);
 
-
     if (!string.IsNullOrWhiteSpace(q))
     {
         var term = q.Trim();
-
 
         query = query.Where(s =>
             (s.Callsign != null &&
@@ -242,12 +260,10 @@ app.MapGet("/api/flights", async (
             EF.Functions.Like(EF.Functions.Collate(s.Icao24, "NOCASE"), $"%{term}%"));
     }
 
-
     if (activeOnly == true)
     {
         query = query.Where(s => s.IsActive && s.LastSeenUtc >= cutoff);
     }
-
 
     query = (sort ?? "lastSeenDesc") switch
     {
@@ -272,7 +288,17 @@ app.MapGet("/api/flights", async (
             s.EndUtc,
             s.IsActive,
             s.SnapshotCount,
-            s.MaxAltitude
+            s.MaxAltitude,
+
+            aircraft = db.AircraftMetadata
+                .Where(a => a.Icao24 == s.Icao24)
+                .Select(a => new
+                {
+                    a.TypeCode,
+                    a.OperatorName,
+                    a.Model
+                })
+                .FirstOrDefault()
         })
         .ToListAsync();
 
@@ -282,10 +308,9 @@ app.MapGet("/api/flights", async (
         page,
         pageSize,
         total,
-        activeNowCutoffMinutes = activeCutoffMinutes, // useful for UI labels
+        activeNowCutoffMinutes = activeCutoffMinutes,
         items
     });
 });
-
 
 app.Run();

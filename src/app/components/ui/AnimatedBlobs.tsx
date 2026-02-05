@@ -1,12 +1,32 @@
 "use client";
 
-import { Box, keyframes } from "@mui/material";
+import React, { useMemo } from "react";
+import { Box, keyframes, useMediaQuery } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
+import { usePathname } from "next/navigation";
 
-function random(min: number, max: number) {
-  return Math.random() * (max - min) + min;
+function hashStringToSeed(str: string) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
-// Movement + scale + opacity + rotation animation
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function rand(rng: () => number, min: number, max: number) {
+  return rng() * (max - min) + min;
+}
+
 const createBlobAnimation = (
   dx: number,
   dy: number,
@@ -23,41 +43,48 @@ const createBlobAnimation = (
   100% { transform: translate(0, 0) scale(${scaleMin}) rotate(${rotateDeg}deg); opacity: ${opacityMin}; }
 `;
 
+type BlobSpec = {
+  size: number;
+  color: string;
+  top?: string;
+  left?: string;
+  right?: string;
+};
+
 export function AnimatedBlobs() {
-  const blobs = [
-    { size: 400, color: "rgba(255,0,0,0.4)", top: "10%", left: "5%" },
-    { size: 500, color: "rgba(128,0,128,0.35)", top: "50%", right: "10%" },
-    { size: 450, color: "rgba(0,0,255,0.4)", top: "30%", left: "60%" },
+  const theme = useTheme();
+  const prefersReducedMotion = useMediaQuery(
+    "(prefers-reduced-motion: reduce)",
+  );
+
+  // Optional: vary per route, but deterministically
+
+  const seed = 123456; // constant
+  const rng = useMemo(() => mulberry32(seed), []);
+
+  const blobs: BlobSpec[] = [
+    { size: 400, color: "rgba(255,0,0,0.35)", top: "10%", left: "5%" },
+    { size: 500, color: "rgba(128,0,128,0.30)", top: "50%", right: "10%" },
+    { size: 450, color: "rgba(0,0,255,0.32)", top: "30%", left: "60%" },
   ];
 
-  return (
-    <Box
-      sx={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        zIndex: 0,
-        pointerEvents: "none",
-        "& > .blob": {
-          position: "absolute",
-          borderRadius: "50%",
-          filter: "none",
-        },
-      }}
-    >
-      {blobs.map((blob, i) => {
-        const dx = random(-150, 150);
-        const dy = random(-150, 150);
-        const scaleMin = random(0.95, 0.98);
-        const scaleMax = random(1.02, 1.06);
-        const opacityMin = random(0.35, 0.45);
-        const opacityMax = random(0.4, 0.5);
-        const rotateDeg = random(-30, 30);
-        const duration = random(40, 70);
+  const runtime = useMemo(() => {
+    return blobs.map((b, i) => {
+      const dx = rand(rng, -150, 150);
+      const dy = rand(rng, -150, 150);
+      const scaleMin = rand(rng, 0.96, 0.99);
+      const scaleMax = rand(rng, 1.02, 1.06);
+      const opacityMin = rand(rng, 0.28, 0.4);
+      const opacityMax = rand(rng, 0.34, 0.46);
+      const rotateDeg = rand(rng, -25, 25);
+      const duration = rand(rng, 48, 72);
 
-        const movementAnim = createBlobAnimation(
+      // different phase per blob to avoid synchronized motion
+      const delay = -rand(rng, 0, duration);
+
+      return {
+        ...b,
+        animation: createBlobAnimation(
           dx,
           dy,
           scaleMin,
@@ -65,24 +92,46 @@ export function AnimatedBlobs() {
           opacityMin,
           opacityMax,
           rotateDeg,
-        );
+        ),
+        duration,
+        delay,
+      };
+    });
+  }, [rng]);
 
-        return (
-          <Box
-            key={i}
-            className="blob"
-            sx={{
-              width: blob.size,
-              height: blob.size,
-              background: blob.color,
-              top: blob.top,
-              left: blob.left,
-              right: blob.right,
-              animation: `${movementAnim} ${duration}s ease-in-out infinite`,
-            }}
-          />
-        );
-      })}
+  return (
+    <Box
+      sx={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        "& > .blob": {
+          position: "absolute",
+          borderRadius: "50%",
+          filter: "none",
+          willChange: "transform, opacity",
+        },
+      }}
+    >
+      {runtime.map((blob, i) => (
+        <Box
+          key={i}
+          className="blob"
+          sx={{
+            width: blob.size,
+            height: blob.size,
+            background: blob.color,
+            top: blob.top,
+            left: blob.left,
+            right: blob.right,
+            animation: prefersReducedMotion
+              ? "none"
+              : `${blob.animation} ${blob.duration}s ease-in-out infinite`,
+            animationDelay: prefersReducedMotion ? undefined : `${blob.delay}s`,
+          }}
+        />
+      ))}
     </Box>
   );
 }

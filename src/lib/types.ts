@@ -8,6 +8,23 @@ export type StatsOverview = {
   sessions: number;
 };
 
+export type AircraftInfoLite = {
+  typeCode: string | null;
+  operatorName: string | null;
+  model: string | null;
+};
+
+export type AircraftInfo = {
+  typeCode: string | null;
+  manufacturerName: string | null;
+  model: string | null;
+  registration: string | null;
+  operatorIcao: string | null;
+  operatorName: string | null;
+  country: string | null;
+  categoryDescription: string | null;
+};
+
 export type FlightsPageItem = {
   id: number;
   icao24: string;
@@ -18,6 +35,8 @@ export type FlightsPageItem = {
   isActive: boolean;
   snapshotCount: number;
   maxAltitude: number | null;
+
+  aircraft: AircraftInfoLite | null;
 };
 
 export type FlightsPage = {
@@ -61,6 +80,8 @@ export type FlightSessionDetails = {
 
   enteredSwedenUtc: string | null;
   exitedSwedenUtc: string | null;
+
+  aircraft: AircraftInfo | null;
 
   snapshots: AircraftSnapshot[];
 };

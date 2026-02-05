@@ -151,6 +151,7 @@ export function FlightTrackerLiveOverview() {
       <Accordion
         expanded={browserOpen}
         onChange={(_, expanded) => setBrowserOpen(expanded)}
+        TransitionProps={{ unmountOnExit: true }}
         elevation={0}
         sx={{
           bgcolor: "transparent",
@@ -192,11 +193,13 @@ export function FlightTrackerLiveOverview() {
         </AccordionSummary>
 
         <AccordionDetails sx={{ pt: 0, pb: 2, px: 2 }}>
-          <FlightsBrowser
-            initialDate={browserDate}
-            initialActiveOnly={browserActiveOnly}
-            onSelectSession={handleSelectSession}
-          />
+          {browserOpen ? (
+            <FlightsBrowser
+              initialDate={browserDate}
+              initialActiveOnly={browserActiveOnly}
+              onSelectSession={handleSelectSession}
+            />
+          ) : null}
         </AccordionDetails>
       </Accordion>
 

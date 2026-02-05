@@ -10,6 +10,10 @@ public class FlightDbContext : DbContext
     public DbSet<AircraftSnapshot> AircraftSnapshots { get; set; } = null!;
     public DbSet<FlightSession> FlightSessions { get; set; } = null!;
 
+
+    public DbSet<AircraftMetadata> AircraftMetadata { get; set; } = null!;
+    public DbSet<AircraftImportState> AircraftImportStates { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AircraftSnapshot>()
@@ -29,6 +33,16 @@ public class FlightDbContext : DbContext
 
         modelBuilder.Entity<AircraftSnapshot>()
             .HasIndex(s => new { s.Icao24, s.TimestampUtc });
+
+
+        modelBuilder.Entity<AircraftMetadata>()
+            .HasKey(a => a.Icao24);
+
+        modelBuilder.Entity<AircraftMetadata>()
+            .HasIndex(a => a.TypeCode);
+
+        modelBuilder.Entity<AircraftImportState>()
+            .HasKey(x => x.Id);
 
         base.OnModelCreating(modelBuilder);
     }
