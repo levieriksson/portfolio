@@ -12,17 +12,17 @@ import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import { Box, Typography, useTheme } from "@mui/material";
 import { BaseModal } from "../ui/BaseModal";
 import { StatCard } from "../ui/StatCard";
-import { Project, projects } from "../../../../data/projects";
+import { Project } from "@/lib/types";
 import { SlideCard } from "./SlideCard";
 import { FlightTrackerLiveOverview } from "../FlightTracker/LiveOverview";
+import { useRouter } from "next/navigation";
+import { projects } from "@/data/projects";
 
 export default function PortfolioCarousel() {
   const carouselRef = useRef<StackedCarousel | null>(null);
-  const [openProject, setOpenProject] = useState<Project | null>(null);
-  const theme = useTheme();
 
-  const isFlightProject =
-    openProject?.title.toLowerCase().includes("flight") ?? false;
+  const theme = useTheme();
+  const router = useRouter();
 
   return (
     <Box
@@ -47,7 +47,7 @@ export default function PortfolioCarousel() {
                 isCenterSlide={props.isCenterSlide}
                 swipeTo={props.swipeTo}
                 slideIndex={props.slideIndex}
-                onViewProject={setOpenProject}
+                onViewProject={(project) => router.push(project.route)}
               />
             )}
             slideWidth={500}
@@ -93,46 +93,6 @@ export default function PortfolioCarousel() {
       >
         <KeyboardArrowRightIcon />
       </Fab>
-
-      {openProject && (
-        <BaseModal open={!!openProject} onClose={() => setOpenProject(null)}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <Box sx={{ pr: 6 }}>
-              <Typography variant="h6" sx={{ m: 0, lineHeight: 1.1 }}>
-                {openProject.title}
-              </Typography>
-
-              <Typography
-                variant="caption"
-                sx={{ color: theme.palette.text.secondary }}
-              >
-                {isFlightProject ? "Live flight stats" : "Project overview"}
-              </Typography>
-            </Box>
-
-            {isFlightProject ? (
-              <FlightTrackerLiveOverview />
-            ) : (
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, 1fr)",
-                  gap: 2,
-                }}
-              >
-                {openProject.stats.map((stat) => (
-                  <StatCard
-                    key={stat.label}
-                    label={stat.label}
-                    value={stat.value}
-                    borderRadius={1}
-                  />
-                ))}
-              </Box>
-            )}
-          </Box>
-        </BaseModal>
-      )}
     </Box>
   );
 }
