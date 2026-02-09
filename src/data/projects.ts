@@ -1,16 +1,11 @@
-export type ProjectStat = {
-  label: string;
-  value: string | number;
-};
-
-export type Project = {
-  title: string;
-  stats: ProjectStat[];
-};
+import type { Project } from "@/lib/types";
 
 export const projects: Project[] = [
   {
+    key: "flight-tracker",
     title: "Flight Tracker",
+    subtitle: "Live flight statistics",
+    route: "/flight-tracker",
     stats: [
       { label: "Current Flights", value: 123 },
       { label: "Highest Altitude", value: "12,000 m" },
@@ -20,7 +15,10 @@ export const projects: Project[] = [
     ],
   },
   {
+    key: "weather-app",
     title: "Weather App",
+    subtitle: "Live weather",
+    route: "/weather-app",
     stats: [
       { label: "Location", value: "Stockholm" },
       { label: "Temperature", value: "-4°C" },
@@ -30,7 +28,10 @@ export const projects: Project[] = [
     ],
   },
   {
+    key: "todo-app",
     title: "Todo App",
+    subtitle: "Keep track",
+    route: "/todo-app",
     stats: [
       { label: "Tasks Today", value: 7 },
       { label: "Completed", value: 4 },
@@ -40,3 +41,7 @@ export const projects: Project[] = [
     ],
   },
 ];
+
+export function getProject(key: Project["key"]) {
+  return projects.find((p) => p.key === key);
+}

@@ -194,8 +194,6 @@ export function FlightsBrowser({
       ? Math.min(data.total, (data.page - 1) * data.pageSize + items.length)
       : 0;
 
-  // IMPORTANT: This is the key for "no jank"
-  // - If we're loading and have no data yet, show skeleton rows
   const showSkeleton = loading && !data;
 
   const openNativePicker = () => {
@@ -216,7 +214,6 @@ export function FlightsBrowser({
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.75 }}>
-      {/* Controls */}
       <Box
         sx={{
           display: "grid",
@@ -292,14 +289,12 @@ export function FlightsBrowser({
         />
       </Box>
 
-      {/* Error only (spinner handled inside reserved area too) */}
       {err && (
         <Typography variant="body2" sx={{ color: "error.main" }}>
           Failed to load flights: {err}
         </Typography>
       )}
 
-      {/* Table always rendered to reserve height */}
       <Paper
         variant="outlined"
         sx={{
@@ -311,7 +306,6 @@ export function FlightsBrowser({
       >
         <TableContainer
           sx={{
-            // Reserve space to prevent modal resize jank
             minHeight: 420,
           }}
         >
@@ -332,7 +326,6 @@ export function FlightsBrowser({
                 bgcolor: alpha(theme.palette.text.primary, 0.012),
               },
 
-              // Hover should be distinct from zebra rows (you already tuned this well)
               "& tbody tr:hover": {
                 bgcolor: alpha(theme.palette.primary.main, 0.12),
               },
@@ -361,7 +354,6 @@ export function FlightsBrowser({
             </TableHead>
 
             <TableBody>
-              {/* Skeleton state on first load */}
               {showSkeleton &&
                 Array.from({ length: 9 }).map((_, i) => (
                   <TableRow key={`sk-${i}`}>
@@ -389,8 +381,6 @@ export function FlightsBrowser({
                   </TableRow>
                 ))}
 
-              {/* Loading but we already have data: keep showing existing rows
-                  (optional spinner shown in footer) */}
               {!showSkeleton &&
                 items.map((row) => (
                   <FlightRow
@@ -400,7 +390,6 @@ export function FlightsBrowser({
                   />
                 ))}
 
-              {/* Empty state */}
               {!showSkeleton && data && items.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7}>
@@ -415,7 +404,6 @@ export function FlightsBrowser({
         </TableContainer>
       </Paper>
 
-      {/* Footer (always reserves height to avoid pop-in) */}
       <Box
         sx={{
           display: "flex",

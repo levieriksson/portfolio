@@ -85,3 +85,16 @@ export type FlightSessionDetails = {
 
   snapshots: AircraftSnapshot[];
 };
+
+export type ProjectStat = {
+  label: string;
+  value: string | number;
+};
+
+export type Project = {
+  title: string;
+  subtitle: string;
+  stats: ProjectStat[];
+  route: string;
+  key: string;
+};

@@ -3,7 +3,7 @@
 import React from "react";
 import { Card, Box, Typography, Divider, Button } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
-import { Project } from "../../../../data/projects";
+import { Project } from "@/lib/types";
 
 export type SlideCardProps = {
   project: Project;
