@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, Box, IconButton, useTheme } from "@mui/material";
+import { Dialog, Box, IconButton, Typography, useTheme } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import Grow from "@mui/material/Grow";
 
@@ -8,9 +8,17 @@ type BaseModalProps = {
   open: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  title?: string;
+  subtitle?: string;
 };
 
-export function BaseModal({ open, onClose, children }: BaseModalProps) {
+export function BaseModal({
+  open,
+  onClose,
+  children,
+  title,
+  subtitle,
+}: BaseModalProps) {
   const theme = useTheme();
 
   return (
@@ -41,12 +49,29 @@ export function BaseModal({ open, onClose, children }: BaseModalProps) {
             position: "absolute",
             top: 0,
             right: 0,
+
             color: "white",
             zIndex: 2,
           }}
+          aria-label="Close"
         >
-          <CloseIcon />
+          <CloseIcon fontSize="small" />
         </IconButton>
+
+        {(title || subtitle) && (
+          <Box sx={{ pr: 6, mb: 2 }}>
+            {title && (
+              <Typography variant="h6" sx={{ m: 0, lineHeight: 1.1 }}>
+                {title}
+              </Typography>
+            )}
+            {subtitle && (
+              <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+        )}
 
         {children}
       </Box>

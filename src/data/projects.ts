@@ -4,6 +4,7 @@ export const projects: Project[] = [
   {
     key: "flight-tracker",
     title: "Flight Tracker",
+    subtitle: "Live flight statistics",
     route: "/flight-tracker",
     stats: [
       { label: "Current Flights", value: 123 },
@@ -16,6 +17,7 @@ export const projects: Project[] = [
   {
     key: "weather-app",
     title: "Weather App",
+    subtitle: "Live weather",
     route: "/weather-app",
     stats: [
       { label: "Location", value: "Stockholm" },
@@ -28,6 +30,7 @@ export const projects: Project[] = [
   {
     key: "todo-app",
     title: "Todo App",
+    subtitle: "Keep track",
     route: "/todo-app",
     stats: [
       { label: "Tasks Today", value: 7 },
@@ -38,3 +41,7 @@ export const projects: Project[] = [
     ],
   },
 ];
+
+export function getProject(key: Project["key"]) {
+  return projects.find((p) => p.key === key);
+}
