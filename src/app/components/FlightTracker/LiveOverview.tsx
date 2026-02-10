@@ -9,6 +9,7 @@ import {
   AccordionDetails,
   Typography,
   Collapse,
+  Button,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -16,9 +17,9 @@ import { StatCard } from "../ui/StatCard";
 import { apiGet } from "@/lib/api";
 import type { StatsOverview } from "@/lib/types";
 import { formatLocalDateTime, utcTodayString } from "@/lib/datetime";
-
 import { FlightsBrowser } from "./FlightsBrowser";
 import { FlightDetailsDrawer } from "./FlightDetailsDrawer";
+import { InteractiveMapModalButton } from "./InteractiveMapModalButton";
 
 const RADIUS = 1;
 
@@ -123,7 +124,10 @@ export function FlightTrackerLiveOverview() {
         >
           <StatCard
             label={
-              <LabelWithHelp label="Flights today" help={helpFlightsToday} />
+              <LabelWithHelp
+                label="Entered Sweden today"
+                help={helpFlightsToday}
+              />
             }
             value={data.flightsTodayInSweden}
             onClick={openFlightsToday}
@@ -243,7 +247,11 @@ export function FlightTrackerLiveOverview() {
           </AccordionDetails>
         </Accordion>
       </Collapse>
-
+      <Collapse in={!browserOpen} timeout={180} unmountOnExit>
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <InteractiveMapModalButton />
+        </Box>
+      </Collapse>
       <FlightDetailsDrawer
         open={detailsOpen}
         sessionId={selectedId}

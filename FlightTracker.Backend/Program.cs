@@ -21,6 +21,9 @@ builder.Services.AddOptions<OpenSkyOptions>()
     .ValidateDataAnnotations()
     .Validate(o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
         "Missing OPENSKY_USERNAME/OPENSKY_PASSWORD environment variables.")
+
+    .Validate(o => o.SessionRetentionDays >= o.SnapshotRetentionDays,
+    "SessionRetentionDays must be >= SnapshotRetentionDays to avoid FK issues.")
     .ValidateOnStart();
 
 var dataDir = Path.Combine(
@@ -90,7 +93,6 @@ app.MapGet("/api/stats/today", async (FlightDbContext db) =>
     });
 });
 
-/// Details: include aircraft metadata (typecode/model/operator/etc.)
 app.MapGet("/api/flights/{id:int}", async (int id, FlightDbContext db) =>
 {
     var session = await db.FlightSessions
@@ -160,7 +162,6 @@ app.MapGet("/api/debug/ingestion", async (FlightDbContext db) =>
     return Results.Ok(new { lastSnapshotUtc = lastSnap, snapshots = snapCount, sessions = sessionCount });
 });
 
-/// Optional: quick verification that metadata exists + last import state
 app.MapGet("/api/debug/aircraft-import", async (FlightDbContext db) =>
 {
     var aircraftRows = await db.AircraftMetadata.CountAsync();
@@ -211,7 +212,6 @@ app.MapGet("/api/stats/overview", async (FlightDbContext db) =>
     });
 });
 
-/// List: include lightweight aircraft metadata (typecode/operator/model)
 app.MapGet("/api/flights", async (
     string date,
     int page,
@@ -312,5 +312,70 @@ app.MapGet("/api/flights", async (
         items
     });
 });
+
+app.MapGet("/api/map/active", async (string bbox, FlightDbContext db) =>
+{
+    var parts = bbox.Split(',', StringSplitOptions.TrimEntries);
+    if (parts.Length != 4 ||
+        !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var lonMin) ||
+        !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var latMin) ||
+        !double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var lonMax) ||
+        !double.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out var latMax))
+    {
+        return Results.BadRequest("Invalid bbox. Use lonMin,latMin,lonMax,latMax");
+    }
+
+    var lastSnapRaw = await db.AircraftSnapshots
+        .OrderByDescending(s => s.TimestampUtc)
+        .Select(s => s.TimestampUtc)
+        .FirstOrDefaultAsync();
+
+    DateTime? lastSnapshotUtc =
+        lastSnapRaw == default
+            ? null
+            : DateTime.SpecifyKind(lastSnapRaw, DateTimeKind.Utc);
+
+    const double clampLonMin = 10.0;
+    const double clampLonMax = 26.5;
+    const double clampLatMin = 54.5;
+    const double clampLatMax = 70.5;
+
+    lonMin = Math.Max(lonMin, clampLonMin);
+    lonMax = Math.Min(lonMax, clampLonMax);
+    latMin = Math.Max(latMin, clampLatMin);
+    latMax = Math.Min(latMax, clampLatMax);
+
+    if (lonMin > lonMax || latMin > latMax)
+        return Results.Ok(new { lastSnapshotUtc, activeNowCutoffMinutes = 25, items = Array.Empty<object>() });
+
+    const int activeCutoffMinutes = 25;
+    var cutoff = DateTime.UtcNow.AddMinutes(-activeCutoffMinutes);
+
+    var items = await db.FlightSessions
+        .AsNoTracking()
+        .Where(s => s.IsActive
+            && s.LastSeenUtc >= cutoff
+            && s.LastLatitude != null && s.LastLongitude != null
+            && s.LastLatitude >= latMin && s.LastLatitude <= latMax
+            && s.LastLongitude >= lonMin && s.LastLongitude <= lonMax)
+        .Select(s => new
+        {
+            s.Id,
+            s.Icao24,
+            s.Callsign,
+            lat = s.LastLatitude,
+            lon = s.LastLongitude,
+            alt = s.LastAltitude,
+            vel = s.LastVelocity,
+            trk = s.LastTrueTrack,
+            s.LastSeenUtc,
+            inSweden = s.LastInSweden
+        })
+        .ToListAsync();
+
+    return Results.Ok(new { lastSnapshotUtc, activeNowCutoffMinutes = activeCutoffMinutes, items });
+});
+
+
 
 app.Run();

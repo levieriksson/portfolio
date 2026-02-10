@@ -21,9 +21,17 @@ public class FlightSession
     public double? MaxAltitude { get; set; }
     public double? AvgAltitude { get; set; }
 
-    // Sweden presence tracking
     public DateTime? EnteredSwedenUtc { get; set; }
     public DateTime? ExitedSwedenUtc { get; set; }
 
     public List<AircraftSnapshot> Snapshots { get; set; } = new();
+
+    public double? LastLatitude { get; set; }
+    public double? LastLongitude { get; set; }
+    public double? LastAltitude { get; set; }
+    public double? LastVelocity { get; set; }
+    public double? LastTrueTrack { get; set; }
+
+    public DateTime? LastSnapshotUtc { get; set; }
+    public bool LastInSweden { get; set; }
 }
