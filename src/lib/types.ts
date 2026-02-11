@@ -98,3 +98,21 @@ export type Project = {
   route: string;
   key: string;
 };
+
+export type MapActiveItem = {
+  id: number;
+  icao24: string;
+  callsign: string | null;
+  lat: number | null;
+  lon: number | null;
+  alt: number | null;
+  vel: number | null;
+  trk: number | null;
+  lastSeenUtc: string;
+  inSweden: boolean;
+};
+
+export type MapActiveResponse = {
+  lastSnapshotUtc: string | null;
+  items: MapActiveItem[];
+};

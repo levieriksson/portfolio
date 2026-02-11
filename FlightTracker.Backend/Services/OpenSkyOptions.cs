@@ -25,9 +25,18 @@ public sealed class OpenSkyOptions
 
 
     [Range(10, 3600)]
-    public int IntervalSeconds { get; set; } = 600;
+    public int IntervalSeconds { get; set; } = 120;
 
 
     [Range(60, 24 * 3600)]
     public int SessionGapSeconds { get; set; } = 2 * 3600;
+
+    [Range(1, 365)]
+    public int SnapshotRetentionDays { get; set; } = 14;
+
+    [Range(7, 3650)]
+    public int SessionRetentionDays { get; set; } = 180;
+
+    [Range(1, 72)]
+    public int CleanupEveryHours { get; set; } = 6;
 }

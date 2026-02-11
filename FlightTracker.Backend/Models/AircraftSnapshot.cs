@@ -14,6 +14,7 @@ public class AircraftSnapshot
     public double? Longitude { get; set; }
     public double? Altitude { get; set; }
     public double? Velocity { get; set; }
+    public double? TrueTrack { get; set; }
 
     public DateTime TimestampUtc { get; set; }
 
@@ -21,4 +22,7 @@ public class AircraftSnapshot
     public FlightSession? FlightSession { get; set; }
 
     public bool InSweden { get; set; }
+
+
+
 }
