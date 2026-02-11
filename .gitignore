@@ -72,6 +72,5 @@ appsettings.dev.json
 *.sqlite-shm
 *.sqlite-wal
 
-
-# Entity Framework
-*Migrations/*.Designer.cs
+#http
+*.http
