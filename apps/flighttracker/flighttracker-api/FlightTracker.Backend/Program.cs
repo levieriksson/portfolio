@@ -7,15 +7,13 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.Host.UseWindowsService();
-
-
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
 
 if (OperatingSystem.IsWindows())
 {
+    builder.Host.UseWindowsService();
     builder.Logging.AddEventLog();
 }
 
@@ -40,21 +38,39 @@ builder.Services.AddOptions<OpenSkyOptions>()
     .ValidateOnStart();
 
 
-string? connectionString = builder.Configuration.GetConnectionString("FlightDb");
+
+var dbProvider = (builder.Configuration["Database:Provider"] ?? "postgres").Trim().ToLowerInvariant();
+
+
+var connectionString = builder.Configuration.GetConnectionString("FlightDb");
 
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    var dataDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "FlightTracker");
-    Directory.CreateDirectory(dataDir);
+    if (dbProvider == "sqlite")
+    {
 
-    var dbPath = Path.Combine(dataDir, "flights.db");
-    connectionString = $"Data Source={dbPath}";
+        var dataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "FlightTracker");
+        Directory.CreateDirectory(dataDir);
+
+        var dbPath = Path.Combine(dataDir, "flights.db");
+        connectionString = $"Data Source={dbPath}";
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            "Missing ConnectionStrings:FlightDb (set ConnectionStrings__FlightDb in Azure).");
+    }
 }
 
 builder.Services.AddDbContext<FlightDbContext>(options =>
-    options.UseSqlite(connectionString, x => x.MigrationsAssembly("FlightTracker.Data")));
+{
+    if (dbProvider == "sqlite")
+        options.UseSqlite(connectionString, x => x.MigrationsAssembly("FlightTracker.Data"));
+    else
+        options.UseNpgsql(connectionString, x => x.MigrationsAssembly("FlightTracker.Data"));
+});
 
 
 builder.Services.AddHttpClient("opensky");

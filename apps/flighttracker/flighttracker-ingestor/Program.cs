@@ -12,47 +12,67 @@ var host = Host.CreateDefaultBuilder(args)
     {
 
         config.SetBasePath(AppContext.BaseDirectory);
-        config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+        config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
+
         config.AddEnvironmentVariables();
     })
     .ConfigureServices((ctx, services) =>
     {
 
-        var sqliteRel = ctx.Configuration["Database:SqlitePath"];
-        if (string.IsNullOrWhiteSpace(sqliteRel))
-            throw new InvalidOperationException("Missing Database:SqlitePath in appsettings.json");
+        var dbProvider = (ctx.Configuration["Database:Provider"] ?? "postgres").Trim().ToLowerInvariant();
+        var connectionString = ctx.Configuration.GetConnectionString("FlightDb");
 
-        var repoRoot = Directory.GetCurrentDirectory();
-        var sqliteAbs = Path.GetFullPath(Path.Combine(repoRoot, sqliteRel));
-        Console.WriteLine($"[INGESTOR] SQLite = {sqliteAbs}");
+        if (dbProvider == "sqlite")
+        {
+            var sqliteRel = ctx.Configuration["Database:SqlitePath"];
+            if (string.IsNullOrWhiteSpace(sqliteRel))
+                throw new InvalidOperationException("Missing Database:SqlitePath (required when Database:Provider=sqlite).");
 
-        var dir = Path.GetDirectoryName(sqliteAbs);
-        if (!string.IsNullOrWhiteSpace(dir))
-            Directory.CreateDirectory(dir);
+            var repoRoot = Directory.GetCurrentDirectory();
+            var sqliteAbs = Path.GetFullPath(Path.Combine(repoRoot, sqliteRel));
+            Console.WriteLine($"[INGESTOR] SQLite = {sqliteAbs}");
 
-        var cs = $"Data Source={sqliteAbs}";
+            var dir = Path.GetDirectoryName(sqliteAbs);
+            if (!string.IsNullOrWhiteSpace(dir))
+                Directory.CreateDirectory(dir);
 
-        services.AddDbContext<FlightDbContext>(options =>
-            options.UseSqlite(cs, x => x.MigrationsAssembly("FlightTracker.Data")));
+            connectionString = $"Data Source={sqliteAbs}";
+
+            services.AddDbContext<FlightDbContext>(options =>
+                options.UseSqlite(connectionString, x => x.MigrationsAssembly("FlightTracker.Data")));
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new InvalidOperationException("Missing ConnectionStrings:FlightDb (set ConnectionStrings__FlightDb in Azure).");
+
+            Console.WriteLine("[INGESTOR] Using PostgreSQL");
+
+            services.AddDbContext<FlightDbContext>(options =>
+                options.UseNpgsql(connectionString, x => x.MigrationsAssembly("FlightTracker.Data")));
+        }
+
 
 
         services.AddOptions<OpenSkyOptions>()
-            .Bind(ctx.Configuration.GetSection("OpenSky"))
-            .ValidateDataAnnotations()
-            .Validate(o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
-                "Missing OpenSky:Username/OpenSky:Password (or env vars).")
-            .Validate(o => o.SessionRetentionDays >= o.SnapshotRetentionDays,
-                "SessionRetentionDays must be >= SnapshotRetentionDays.")
-            .ValidateOnStart();
+    .Bind(ctx.Configuration.GetSection("OpenSky"))
+    .Configure(o =>
+    {
+        var u = (ctx.Configuration["OPENSKY_USERNAME"] ?? "").Trim();
+        var p = (ctx.Configuration["OPENSKY_PASSWORD"] ?? "").Trim();
+
+        if (!string.IsNullOrWhiteSpace(u)) o.Username = u;
+        if (!string.IsNullOrWhiteSpace(p)) o.Password = p;
+    })
+    .ValidateDataAnnotations()
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
+        "Missing OpenSky credentials. Set OPENSKY_USERNAME / OPENSKY_PASSWORD (recommended) or OpenSky:Username / OpenSky:Password.")
+    .Validate(o => o.SessionRetentionDays >= o.SnapshotRetentionDays,
+        "SessionRetentionDays must be >= SnapshotRetentionDays.")
+    .ValidateOnStart();
 
 
-        services.PostConfigure<OpenSkyOptions>(o =>
-        {
-            var u = (ctx.Configuration["OPENSKY_USERNAME"] ?? "").Trim();
-            var p = (ctx.Configuration["OPENSKY_PASSWORD"] ?? "").Trim();
-            if (!string.IsNullOrWhiteSpace(u)) o.Username = u;
-            if (!string.IsNullOrWhiteSpace(p)) o.Password = p;
-        });
+
 
         services.AddHttpClient("opensky");
 
