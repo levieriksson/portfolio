@@ -1,0 +1,250 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.40.2.10011",
+      "templateHash": "15175340134602963909"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Azure region. Defaults to the resource group location."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "flighttracker",
+      "metadata": {
+        "description": "Prefix used to name resources."
+      }
+    },
+    "webAppName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-api-{1}', parameters('namePrefix'), uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "Web App name (must be globally unique). If you leave blank, a unique name is generated."
+      }
+    },
+    "appServicePlanName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-plan-{1}', parameters('namePrefix'), uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "Linux App Service Plan name."
+      }
+    },
+    "postgresServerName": {
+      "type": "string",
+      "defaultValue": "[format('{0}-pg-{1}', parameters('namePrefix'), uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "PostgreSQL Flexible Server name (must be globally unique)."
+      }
+    },
+    "postgresDatabaseName": {
+      "type": "string",
+      "defaultValue": "flighttracker",
+      "metadata": {
+        "description": "Database name to create on the Postgres server."
+      }
+    },
+    "postgresAdminUser": {
+      "type": "string",
+      "defaultValue": "ftadmin",
+      "metadata": {
+        "description": "Postgres admin username."
+      }
+    },
+    "postgresAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Postgres admin password (pass from GitHub Secret)."
+      }
+    },
+    "postgresVersion": {
+      "type": "string",
+      "defaultValue": "17",
+      "metadata": {
+        "description": "Postgres major version."
+      }
+    },
+    "postgresSkuTier": {
+      "type": "string",
+      "defaultValue": "Burstable",
+      "allowedValues": [
+        "Burstable",
+        "GeneralPurpose",
+        "MemoryOptimized"
+      ],
+      "metadata": {
+        "description": "Postgres SKU tier."
+      }
+    },
+    "postgresSkuName": {
+      "type": "string",
+      "defaultValue": "Standard_B1ms",
+      "metadata": {
+        "description": "Postgres SKU name (Burstable example: Standard_B1ms)."
+      }
+    },
+    "postgresStorageSizeGB": {
+      "type": "int",
+      "defaultValue": 32,
+      "metadata": {
+        "description": "Postgres storage size in GB."
+      }
+    },
+    "appServiceSkuTier": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "allowedValues": [
+        "Basic",
+        "Standard",
+        "PremiumV2",
+        "PremiumV3"
+      ],
+      "metadata": {
+        "description": "App Service plan SKU tier (Always On requires Basic or higher)."
+      }
+    },
+    "appServiceSkuName": {
+      "type": "string",
+      "defaultValue": "B1",
+      "metadata": {
+        "description": "App Service plan SKU name (B1 is cheapest Always On tier)."
+      }
+    }
+  },
+  "variables": {
+    "postgresFqdn": "[format('{0}.postgres.database.azure.com', parameters('postgresServerName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2025-03-01",
+      "name": "[parameters('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": {
+        "tier": "[parameters('appServiceSkuTier')]",
+        "name": "[parameters('appServiceSkuName')]"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2025-03-01",
+      "name": "[parameters('webAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "alwaysOn": true,
+          "linuxFxVersion": "DOTNET|8.0",
+          "ftpsState": "Disabled",
+          "cors": {
+            "allowedOrigins": [
+              "http://localhost:3000",
+              "https://levieriksson.dev"
+            ],
+            "supportCredentials": true
+          },
+          "appSettings": [
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "false"
+            },
+            {
+              "name": "WEBSITE_RUN_FROM_PACKAGE",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+      "apiVersion": "2025-08-01",
+      "name": "[parameters('postgresServerName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('postgresSkuName')]",
+        "tier": "[parameters('postgresSkuTier')]"
+      },
+      "properties": {
+        "version": "[parameters('postgresVersion')]",
+        "administratorLogin": "[parameters('postgresAdminUser')]",
+        "administratorLoginPassword": "[parameters('postgresAdminPassword')]",
+        "network": {
+          "publicNetworkAccess": "Enabled"
+        },
+        "highAvailability": {
+          "mode": "Disabled"
+        },
+        "storage": {
+          "storageSizeGB": "[parameters('postgresStorageSizeGB')]",
+          "autoGrow": "Enabled"
+        },
+        "backup": {
+          "backupRetentionDays": 7,
+          "geoRedundantBackup": "Disabled"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
+      "apiVersion": "2022-12-01",
+      "name": "[format('{0}/{1}', parameters('postgresServerName'), parameters('postgresDatabaseName'))]",
+      "properties": {
+        "charset": "UTF8",
+        "collation": "en_US.utf8"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('postgresServerName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+      "apiVersion": "2022-12-01",
+      "name": "[format('{0}/{1}', parameters('postgresServerName'), 'AllowAllAzureServices')]",
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('postgresServerName'))]"
+      ],
+      "metadata": {
+        "description": "Allow connections from any Azure service within Azure (0.0.0.0 rule)."
+      }
+    }
+  ],
+  "outputs": {
+    "outWebAppName": {
+      "type": "string",
+      "value": "[parameters('webAppName')]"
+    },
+    "outPostgresFqdn": {
+      "type": "string",
+      "value": "[variables('postgresFqdn')]"
+    },
+    "outPostgresDbName": {
+      "type": "string",
+      "value": "[parameters('postgresDatabaseName')]"
+    },
+    "outPostgresAdminUser": {
+      "type": "string",
+      "value": "[parameters('postgresAdminUser')]"
+    }
+  }
+}
