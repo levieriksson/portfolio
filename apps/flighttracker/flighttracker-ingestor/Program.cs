@@ -1,5 +1,5 @@
-﻿using FlightTracker.Backend.Infrastructure.Json;
-using FlightTracker.Backend.Services;
+﻿using FlightTracker.Ingestion.Helpers;
+using FlightTracker.Ingestion.Services;
 using FlightTracker.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;

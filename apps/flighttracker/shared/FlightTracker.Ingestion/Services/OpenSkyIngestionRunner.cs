@@ -7,8 +7,10 @@ using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using FlightTracker.Ingestion.Helpers;
 
-namespace FlightTracker.Backend.Services;
+namespace FlightTracker.Ingestion.Services;
+
 
 public sealed class OpenSkyIngestionRunner
 {

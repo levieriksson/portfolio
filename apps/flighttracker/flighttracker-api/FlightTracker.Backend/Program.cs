@@ -1,15 +1,14 @@
-using FlightTracker.Backend.Infrastructure.Json;
 using FlightTracker.Backend.Services;
 using FlightTracker.Data;
+using FlightTracker.Ingestion.Helpers;
+using FlightTracker.Ingestion.Services;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
-
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
-
 
 if (OperatingSystem.IsWindows())
 {
@@ -17,18 +16,13 @@ if (OperatingSystem.IsWindows())
     builder.Logging.AddEventLog();
 }
 
-
 builder.Services.AddControllers();
-
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
 
 builder.Services.AddOptions<OpenSkyOptions>()
     .Configure(o =>
     {
-
         o.Username = (builder.Configuration["OPENSKY_USERNAME"] ?? "").Trim();
         o.Password = (builder.Configuration["OPENSKY_PASSWORD"] ?? "").Trim();
     })
@@ -37,18 +31,13 @@ builder.Services.AddOptions<OpenSkyOptions>()
         "SessionRetentionDays must be >= SnapshotRetentionDays to avoid FK issues.")
     .ValidateOnStart();
 
-
-
 var dbProvider = (builder.Configuration["Database:Provider"] ?? "postgres").Trim().ToLowerInvariant();
-
-
 var connectionString = builder.Configuration.GetConnectionString("FlightDb");
 
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     if (dbProvider == "sqlite")
     {
-
         var dataDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             "FlightTracker");
@@ -72,7 +61,6 @@ builder.Services.AddDbContext<FlightDbContext>(options =>
         options.UseNpgsql(connectionString, x => x.MigrationsAssembly("FlightTracker.Data"));
 });
 
-
 builder.Services.AddHttpClient("opensky");
 
 builder.Services.ConfigureHttpJsonOptions(o =>
@@ -80,9 +68,9 @@ builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new AssumeUtcDateTimeConverter());
 });
 
-
 builder.Services.AddSingleton<OpenSkyAuthService>();
 builder.Services.AddSingleton<OpenSkyIngestionRunner>();
+
 builder.Services.AddScoped<AircraftCsvImporter>();
 
 if (builder.Environment.IsDevelopment() ||
@@ -91,16 +79,12 @@ if (builder.Environment.IsDevelopment() ||
     builder.Services.AddHostedService<DbMigrationHostedService>();
 }
 
-
-
 var enableIngestion = builder.Configuration.GetValue<bool>("Features:EnableIngestionHostedServices");
 if (enableIngestion)
 {
-
     builder.Services.AddHostedService<AircraftImportHostedService>();
     builder.Services.AddHostedService<OpenSkyIngestionService>();
 }
-
 
 builder.Services.AddCors(options =>
 {
@@ -121,7 +105,6 @@ var app = builder.Build();
 
 app.UseCors("frontend");
 
-
 var enableSwagger = app.Environment.IsDevelopment()
                    || builder.Configuration.GetValue<bool>("Features:EnableSwagger");
 
@@ -136,5 +119,4 @@ if (enableSwagger)
 }
 
 app.MapControllers();
-
 app.Run();

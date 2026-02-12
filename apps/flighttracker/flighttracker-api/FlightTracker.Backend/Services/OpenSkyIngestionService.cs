@@ -1,3 +1,4 @@
+using FlightTracker.Ingestion.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -22,8 +23,10 @@ public sealed class OpenSkyIngestionService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Ingestion started. Interval={Interval}s, GapClose={Gap}s",
-            _options.IntervalSeconds, _options.SessionGapSeconds);
+        _logger.LogInformation(
+            "Ingestion started. Interval={Interval}s, GapClose={Gap}s",
+            _options.IntervalSeconds,
+            _options.SessionGapSeconds);
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_options.IntervalSeconds));
 
