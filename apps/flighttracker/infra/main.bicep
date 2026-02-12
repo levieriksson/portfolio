@@ -78,22 +78,25 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
     httpsOnly: true
     siteConfig: {
       alwaysOn: true
-      linuxFxVersion: 'DOTNET|8.0'
+
+      linuxFxVersion: 'DOTNETCORE|8.0'
+
       ftpsState: 'Disabled'
+
       cors: {
         allowedOrigins: [
           'http://localhost:3000'
           'https://levieriksson.dev'
+          'https://www.levieriksson.dev'
         ]
-        supportCredentials: true
       }
+
       appSettings: [
-        // We deploy a ready-to-run zip; no build on App Service
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'false'
         }
-        // Run from deployed zip package
+
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: '1'

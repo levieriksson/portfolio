@@ -52,12 +52,16 @@ jobs:
           mkdir -p "$JOB_DIR"
           cp -R "${{ github.workspace }}/artifacts/ingestor/." "$JOB_DIR/"
           cp "apps/flighttracker/flighttracker-ingestor/webjob/settings.job" "$JOB_DIR/settings.job"
-          cat > "$JOB_DIR/run.sh" <<EOF
+
+          cat > "$JOB_DIR/run.sh" <<'EOF'
           #!/bin/bash
           set -euo pipefail
-          cd "\$(dirname "\$0")"
-          dotnet ${{ env.INGESTOR_DLL }}
+          cd "$(dirname "$0")"
+          echo "[$(date -u)] Starting FlightTracker ingestor..."
+          dotnet FlightTracker.Ingestor.dll
+          echo "[$(date -u)] FlightTracker ingestor finished."
           EOF
+
           sed -i 's/\r$//' "$JOB_DIR/run.sh"
           chmod +x "$JOB_DIR/run.sh"
 
@@ -89,7 +93,7 @@ jobs:
             --parameters location="${AZURE_LOCATION}" \
             --parameters postgresAdminPassword="${{ secrets.FT_PG_ADMIN_PASSWORD }}" \
             --query properties.outputs -o json)
-          echo "$OUTPUTS" | jq .
+
           WEBAPP_NAME=$(echo "$OUTPUTS" | jq -r '.outWebAppName.value')
           PG_FQDN=$(echo "$OUTPUTS" | jq -r '.outPostgresFqdn.value')
           PG_DB=$(echo "$OUTPUTS" | jq -r '.outPostgresDbName.value')
@@ -102,6 +106,9 @@ jobs:
       - name: Apply App Settings
         run: |
           set -euo pipefail
+          # Avoid accidentally echoing anything sensitive
+          set +x
+
           CONN_STR="Host=${PG_FQDN};Port=5432;Database=${PG_DB};Username=${PG_USER};Password=${{ secrets.FT_PG_ADMIN_PASSWORD }};Ssl Mode=Require;"
           az webapp config appsettings set \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
@@ -112,10 +119,29 @@ jobs:
               ConnectionStrings__FlightDb="$CONN_STR" \
               OPENSKY_USERNAME="${{ secrets.OPENSKY_USERNAME }}" \
               OPENSKY_PASSWORD="${{ secrets.OPENSKY_PASSWORD }}" \
-              WEBSITE_RUN_FROM_PACKAGE="1"
+              Features__AutoMigrate="false" \
+              Features__EnableIngestionHostedServices="false" \
+              Features__EnableSwagger="false" \
+              WEBSITE_RUN_FROM_PACKAGE="1" \
+            --output none
 
-      - name: Deploy zip
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.WEBAPP_NAME }}
-          package: ${{ github.workspace }}/artifacts/deploy.zip
+      - name: Guardrail - forbid ASPNETCORE_URLS
+        run: |
+          set -euo pipefail
+          COUNT=$(az webapp config appsettings list \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --query "[?name=='ASPNETCORE_URLS'] | length(@)" -o tsv)
+          if [ "$COUNT" != "0" ]; then
+            echo "ERROR: ASPNETCORE_URLS is set. Remove it; App Service Linux routes ports internally."
+            exit 1
+          fi
+
+      - name: Deploy zip (CLI)
+        run: |
+          set -euo pipefail
+          az webapp deployment source config-zip \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --src "${{ github.workspace }}/artifacts/deploy.zip" \
+            --output none
