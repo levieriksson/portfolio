@@ -34,6 +34,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\shared\FlightTracker.Data\FlightTracker.Data.csproj" />
+     <ProjectReference Include="..\..\shared\FlightTracker.Ingestion\FlightTracker.Ingestion.csproj" />
   </ItemGroup>
 
 </Project>

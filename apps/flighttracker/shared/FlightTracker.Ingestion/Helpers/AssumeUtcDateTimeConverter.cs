@@ -2,7 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace FlightTracker.Backend.Infrastructure.Json;
+namespace FlightTracker.Ingestion.Helpers;
+
 
 public sealed class AssumeUtcDateTimeConverter : JsonConverter<DateTime>
 {

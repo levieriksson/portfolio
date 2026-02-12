@@ -1,7 +1,8 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 
-namespace FlightTracker.Backend.Services;
+namespace FlightTracker.Ingestion.Services;
+
 
 public sealed class OpenSkyOptions
 {
