@@ -40,7 +40,9 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore
+        run: |
+          dotnet restore "${{ env.API_CSPROJ }}"
+          dotnet restore "${{ env.INGESTOR_CSPROJ }}"
 
       - name: Publish API
         run: |
