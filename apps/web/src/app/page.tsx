@@ -1,8 +1,7 @@
-import Image from "next/image";
-import styles from "./page.module.css";
-import PortfolioCarousel from "./components/Carousel/PortfolioCarousel";
-import { Box, Typography, keyframes } from "@mui/material";
+import { Suspense } from "react";
+import { Box, Typography } from "@mui/material";
 import { AnimatedBlobs } from "./components/ui/AnimatedBlobs";
+import PortfolioCarousel from "./components/Carousel/PortfolioCarousel";
 import ProjectAutoLauncher from "./components/ProjectAutoLauncher";
 
 export default function Home() {
@@ -24,8 +23,11 @@ export default function Home() {
           overflow: "hidden",
         }}
       >
-        <ProjectAutoLauncher />
-        <AnimatedBlobs></AnimatedBlobs>
+        <Suspense fallback={null}>
+          <ProjectAutoLauncher />
+        </Suspense>
+
+        <AnimatedBlobs />
 
         <Box
           sx={{ textAlign: "center", mb: 6, position: "relative", zIndex: 1 }}

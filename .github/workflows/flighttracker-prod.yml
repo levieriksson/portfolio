@@ -86,7 +86,6 @@ jobs:
         id: infra
         run: |
           set -euo pipefail
-
           OUTPUTS=$(az deployment group create \
             --name "flighttracker-prod" \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
@@ -99,7 +98,6 @@ jobs:
           PG_FQDN=$(echo "$OUTPUTS" | jq -r '.outPostgresFqdn.value')
           PG_DB=$(echo "$OUTPUTS" | jq -r '.outPostgresDbName.value')
           PG_USER=$(echo "$OUTPUTS" | jq -r '.outPostgresAdminUser.value')
-
           echo "WEBAPP_NAME=$WEBAPP_NAME" >> $GITHUB_ENV
           echo "PG_FQDN=$PG_FQDN" >> $GITHUB_ENV
           echo "PG_DB=$PG_DB" >> $GITHUB_ENV
@@ -112,7 +110,6 @@ jobs:
           set +x
 
           CONN_STR="Host=${PG_FQDN};Port=5432;Database=${PG_DB};Username=${PG_USER};Password=${{ secrets.FT_PG_ADMIN_PASSWORD }};Ssl Mode=Require;"
-
           az webapp config appsettings set \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "${WEBAPP_NAME}" \
