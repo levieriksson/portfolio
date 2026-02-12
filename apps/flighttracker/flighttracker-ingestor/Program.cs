@@ -69,6 +69,9 @@ var host = Host.CreateDefaultBuilder(args)
         "Missing OpenSky credentials. Set OPENSKY_USERNAME / OPENSKY_PASSWORD (recommended) or OpenSky:Username / OpenSky:Password.")
     .Validate(o => o.SessionRetentionDays >= o.SnapshotRetentionDays,
         "SessionRetentionDays must be >= SnapshotRetentionDays.")
+        .Validate(o => !string.IsNullOrWhiteSpace(o.TokenUrl),
+    "Missing OpenSky:TokenUrl (required for token auth).")
+
     .ValidateOnStart();
 
 
