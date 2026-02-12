@@ -2,7 +2,8 @@ name: flighttracker-prod
 
 on:
   push:
-    branches: ["integration"]
+    branches:
+      - integration
   workflow_dispatch:
 
 permissions:
@@ -10,19 +11,11 @@ permissions:
 
 env:
   DOTNET_VERSION: "8.0.x"
-
-  # Repo Variables (Settings -> Secrets and variables -> Actions -> Variables)
   AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
   AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
-
-  # IaC
   BICEP_FILE: "apps/flighttracker/infra/main.bicep"
-
-  # Project paths (adjust if your csproj names differ)
   API_CSPROJ: "apps/flighttracker/flighttracker-api/FlightTracker.Backend/FlightTracker.Backend.csproj"
   INGESTOR_CSPROJ: "apps/flighttracker/flighttracker-ingestor/FlightTracker.Ingestor.csproj"
-
-  # WebJob package location inside the App Service zip
   WEBJOB_REL_PATH: "App_Data/jobs/triggered/flighttracker-ingestor"
   INGESTOR_DLL: "FlightTracker.Ingestor.dll"
 
@@ -40,7 +33,9 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore
+        run: |
+          dotnet restore "${{ env.API_CSPROJ }}"
+          dotnet restore "${{ env.INGESTOR_CSPROJ }}"
 
       - name: Publish API
         run: |
@@ -53,44 +48,41 @@ jobs:
       - name: Package triggered WebJob into site artifact
         run: |
           set -euo pipefail
-
           JOB_DIR="${{ github.workspace }}/artifacts/site/${{ env.WEBJOB_REL_PATH }}"
           mkdir -p "$JOB_DIR"
-
-          # Copy ingestor publish output
           cp -R "${{ github.workspace }}/artifacts/ingestor/." "$JOB_DIR/"
-
-          # Copy schedule definition
           cp "apps/flighttracker/flighttracker-ingestor/webjob/settings.job" "$JOB_DIR/settings.job"
 
-          # WebJobs on Linux run scripts; this script runs the .NET console app
-          cat > "$JOB_DIR/run.sh" <<EOF
+          cat > "$JOB_DIR/run.sh" <<'EOF'
           #!/bin/bash
           set -euo pipefail
-          cd "\$(dirname "\$0")"
-          dotnet ${{ env.INGESTOR_DLL }}
+          cd "$(dirname "$0")"
+          echo "[$(date -u)] Starting FlightTracker ingestor..."
+          dotnet FlightTracker.Ingestor.dll
+          echo "[$(date -u)] FlightTracker ingestor finished."
           EOF
 
-          # Ensure unix line endings + executable bit
           sed -i 's/\r$//' "$JOB_DIR/run.sh"
           chmod +x "$JOB_DIR/run.sh"
 
-          echo "WebJob packaged at: $JOB_DIR"
-          ls -la "$JOB_DIR"
-
-      - name: Create deploy zip (site + webjob)
+      - name: Create deploy zip
         run: |
           set -euo pipefail
           cd "${{ github.workspace }}/artifacts/site"
           zip -r "${{ github.workspace }}/artifacts/deploy.zip" .
 
-      - name: Azure login (service principal)
+      - name: Verify deploy zip exists
+        run: |
+          ls -la "${{ github.workspace }}/artifacts"
+          test -f "${{ github.workspace }}/artifacts/deploy.zip"
+
+      - name: Azure login
         uses: azure/login@v2
         with:
           creds: >-
             {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}
 
-      - name: Deploy infrastructure (Bicep)
+      - name: Deploy infrastructure
         id: infra
         run: |
           set -euo pipefail
@@ -103,8 +95,6 @@ jobs:
             --parameters postgresAdminPassword="${{ secrets.FT_PG_ADMIN_PASSWORD }}" \
             --query properties.outputs -o json)
 
-          echo "$OUTPUTS" | jq .
-
           WEBAPP_NAME=$(echo "$OUTPUTS" | jq -r '.outWebAppName.value')
           PG_FQDN=$(echo "$OUTPUTS" | jq -r '.outPostgresFqdn.value')
           PG_DB=$(echo "$OUTPUTS" | jq -r '.outPostgresDbName.value')
@@ -115,9 +105,11 @@ jobs:
           echo "PG_DB=$PG_DB" >> $GITHUB_ENV
           echo "PG_USER=$PG_USER" >> $GITHUB_ENV
 
-      - name: Apply App Settings (secrets + config)
+      - name: Apply App Settings
         run: |
           set -euo pipefail
+          # Avoid accidentally echoing anything sensitive
+          set +x
 
           CONN_STR="Host=${PG_FQDN};Port=5432;Database=${PG_DB};Username=${PG_USER};Password=${{ secrets.FT_PG_ADMIN_PASSWORD }};Ssl Mode=Require;"
 
@@ -130,10 +122,29 @@ jobs:
               ConnectionStrings__FlightDb="$CONN_STR" \
               OPENSKY_USERNAME="${{ secrets.OPENSKY_USERNAME }}" \
               OPENSKY_PASSWORD="${{ secrets.OPENSKY_PASSWORD }}" \
-              WEBSITE_RUN_FROM_PACKAGE="1"
+              Features__AutoMigrate="false" \
+              Features__EnableIngestionHostedServices="false" \
+              Features__EnableSwagger="false" \
+              WEBSITE_RUN_FROM_PACKAGE="1" \
+            --output none
 
-      - name: Deploy zip to App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.WEBAPP_NAME }}
-          package: ${{ github.workspace }}/artifacts/deploy.zip
+      - name: Guardrail - forbid ASPNETCORE_URLS
+        run: |
+          set -euo pipefail
+          COUNT=$(az webapp config appsettings list \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --query "[?name=='ASPNETCORE_URLS'] | length(@)" -o tsv)
+          if [ "$COUNT" != "0" ]; then
+            echo "ERROR: ASPNETCORE_URLS is set. Remove it; App Service Linux routes ports internally."
+            exit 1
+          fi
+
+      - name: Deploy zip (CLI)
+        run: |
+          set -euo pipefail
+          az webapp deployment source config-zip \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --src "${{ github.workspace }}/artifacts/deploy.zip" \
+            --output none
