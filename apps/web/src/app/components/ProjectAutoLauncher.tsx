@@ -6,13 +6,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 export default function ProjectAutoLauncher() {
   const router = useRouter();
   const params = useSearchParams();
+  const project = params.get("project");
 
   useEffect(() => {
-    const project = params.get("project");
     if (project === "flight-tracker") {
       router.replace("/flight-tracker");
     }
-  }, [params, router]);
+  }, [project, router]);
 
   return null;
 }
