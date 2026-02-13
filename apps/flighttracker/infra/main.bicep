@@ -79,8 +79,8 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
     siteConfig: {
       alwaysOn: true
 
-      linuxFxVersion: 'DOTNETCORE|8.0'
-
+      linuxFxVersion: 'DOTNETCORE|10.0'
+      appCommandLine: 'dotnet FlightTracker.Backend.dll'
       ftpsState: 'Disabled'
 
       cors: {
