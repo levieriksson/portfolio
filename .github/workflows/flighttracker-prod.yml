@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  DOTNET_VERSION: "8.0.x"
+  DOTNET_VERSION: "10.0.x"
   AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
   AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
   BICEP_FILE: "apps/flighttracker/infra/main.bicep"
