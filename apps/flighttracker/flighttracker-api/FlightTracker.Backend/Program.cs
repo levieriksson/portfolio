@@ -88,14 +88,27 @@ if (enableIngestion)
 
 builder.Services.AddCors(options =>
 {
+    var fixedOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "http://localhost:3000",
+        "https://levieriksson.dev",
+        "https://www.levieriksson.dev",
+    };
+
+    static bool IsAllowedVercelPreview(string? origin)
+    {
+        if (string.IsNullOrWhiteSpace(origin)) return false;
+
+
+        return origin.StartsWith("https://portfolio-", StringComparison.OrdinalIgnoreCase)
+            && origin.EndsWith("-levi-erikssons-projects.vercel.app", StringComparison.OrdinalIgnoreCase);
+    }
+
     options.AddPolicy("frontend", policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:3000",
-                "https://levieriksson.dev",
-                "https://www.levieriksson.dev"
-            )
+            .SetIsOriginAllowed(origin =>
+                fixedOrigins.Contains(origin) || IsAllowedVercelPreview(origin))
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

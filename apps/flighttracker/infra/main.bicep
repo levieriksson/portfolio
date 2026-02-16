@@ -83,13 +83,7 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
       appCommandLine: 'dotnet FlightTracker.Backend.dll'
       ftpsState: 'Disabled'
 
-      cors: {
-        allowedOrigins: [
-          'http://localhost:3000'
-          'https://levieriksson.dev'
-          'https://www.levieriksson.dev'
-        ]
-      }
+      
 
       appSettings: [
         {
