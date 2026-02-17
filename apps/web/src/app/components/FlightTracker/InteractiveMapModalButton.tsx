@@ -71,7 +71,6 @@ export function InteractiveMapModalButton() {
             height="100%"
             showHeader={false}
             fitToken={fitToken}
-            debug
           />
         </DialogContent>
       </Dialog>

@@ -1,3 +1,4 @@
+using FlightTracker.Backend.Options;
 using FlightTracker.Backend.Services;
 using FlightTracker.Data;
 using FlightTracker.Ingestion.Helpers;
@@ -20,46 +21,46 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddOptions<OpenSkyOptions>()
+builder.Services.Configure<MapBoundsOptions>(
+    builder.Configuration.GetSection("MapBounds"));
+
+var enableIngestion = builder.Configuration.GetValue<bool>("Features:EnableIngestionHostedServices");
+
+var openSky = builder.Services.AddOptions<OpenSkyOptions>()
+    .Bind(builder.Configuration.GetSection("OpenSky"))
     .Configure(o =>
     {
-        o.Username = (builder.Configuration["OPENSKY_USERNAME"] ?? "").Trim();
-        o.Password = (builder.Configuration["OPENSKY_PASSWORD"] ?? "").Trim();
+        var u = (builder.Configuration["OPENSKY_USERNAME"] ?? "").Trim();
+        var p = (builder.Configuration["OPENSKY_PASSWORD"] ?? "").Trim();
+
+        if (!string.IsNullOrWhiteSpace(u)) o.Username = u;
+        if (!string.IsNullOrWhiteSpace(p)) o.Password = p;
     })
-    .ValidateDataAnnotations()
     .Validate(o => o.SessionRetentionDays >= o.SnapshotRetentionDays,
-        "SessionRetentionDays must be >= SnapshotRetentionDays to avoid FK issues.")
-    .ValidateOnStart();
+        "SessionRetentionDays must be >= SnapshotRetentionDays to avoid FK issues.");
 
-var dbProvider = (builder.Configuration["Database:Provider"] ?? "postgres").Trim().ToLowerInvariant();
+if (enableIngestion)
+{
+    openSky
+        .ValidateDataAnnotations()
+        .Validate(o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
+            "Missing OpenSky credentials. Set OPENSKY_USERNAME / OPENSKY_PASSWORD.");
+}
+
+if (enableIngestion && !builder.Environment.IsDevelopment())
+{
+    openSky.ValidateOnStart();
+}
+
 var connectionString = builder.Configuration.GetConnectionString("FlightDb");
-
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    if (dbProvider == "sqlite")
-    {
-        var dataDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "FlightTracker");
-        Directory.CreateDirectory(dataDir);
-
-        var dbPath = Path.Combine(dataDir, "flights.db");
-        connectionString = $"Data Source={dbPath}";
-    }
-    else
-    {
-        throw new InvalidOperationException(
-            "Missing ConnectionStrings:FlightDb (set ConnectionStrings__FlightDb in Azure).");
-    }
+    throw new InvalidOperationException(
+        "Missing ConnectionStrings:FlightDb. Set ConnectionStrings__FlightDb (local env/secret or Azure App Settings).");
 }
 
 builder.Services.AddDbContext<FlightDbContext>(options =>
-{
-    if (dbProvider == "sqlite")
-        options.UseSqlite(connectionString, x => x.MigrationsAssembly("FlightTracker.Data"));
-    else
-        options.UseNpgsql(connectionString, x => x.MigrationsAssembly("FlightTracker.Data"));
-});
+    options.UseNpgsql(connectionString, x => x.MigrationsAssembly("FlightTracker.Data")));
 
 builder.Services.AddHttpClient("opensky");
 
@@ -71,7 +72,7 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 builder.Services.AddSingleton<OpenSkyAuthService>();
 builder.Services.AddSingleton<OpenSkyIngestionRunner>();
 
-builder.Services.AddScoped<AircraftCsvImporter>();
+
 
 if (builder.Environment.IsDevelopment() ||
     builder.Configuration.GetValue<bool>("Features:AutoMigrate"))
@@ -79,7 +80,6 @@ if (builder.Environment.IsDevelopment() ||
     builder.Services.AddHostedService<DbMigrationHostedService>();
 }
 
-var enableIngestion = builder.Configuration.GetValue<bool>("Features:EnableIngestionHostedServices");
 if (enableIngestion)
 {
     builder.Services.AddHostedService<AircraftImportHostedService>();
@@ -98,7 +98,6 @@ builder.Services.AddCors(options =>
     static bool IsAllowedVercelPreview(string? origin)
     {
         if (string.IsNullOrWhiteSpace(origin)) return false;
-
 
         return origin.StartsWith("https://portfolio-", StringComparison.OrdinalIgnoreCase)
             && origin.EndsWith("-levi-erikssons-projects.vercel.app", StringComparison.OrdinalIgnoreCase);
