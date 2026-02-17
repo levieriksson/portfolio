@@ -9,9 +9,11 @@ export type StatsOverview = {
 };
 
 export type AircraftInfoLite = {
+  manufacturerName: string | null;
+  model: string | null;
+  registration: string | null;
   typeCode: string | null;
   operatorName: string | null;
-  model: string | null;
 };
 
 export type AircraftInfo = {
@@ -110,9 +112,11 @@ export type MapActiveItem = {
   trk: number | null;
   lastSeenUtc: string;
   inSweden: boolean;
+  aircraft: AircraftInfoLite | null;
 };
 
 export type MapActiveResponse = {
   lastSnapshotUtc: string | null;
+  activeNowCutoffMinutes: number;
   items: MapActiveItem[];
 };

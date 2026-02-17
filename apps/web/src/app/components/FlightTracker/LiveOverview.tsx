@@ -19,7 +19,7 @@ import type { StatsOverview } from "@/lib/types";
 import { formatLocalDateTime, utcTodayString } from "@/lib/datetime";
 import { FlightsBrowser } from "./FlightsBrowser";
 import { FlightDetailsDrawer } from "./FlightDetailsDrawer";
-import { InteractiveMapModalButton } from "./InteractiveMapModalButton";
+import { InteractiveMapModalButton } from "./map/InteractiveMapModalButton";
 
 const RADIUS = 1;
 
