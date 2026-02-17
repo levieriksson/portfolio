@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using FlightTracker.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Npgsql.EntityFrameworkCore.PostgreSQL;
+using FlightTracker.Backend.DTO;
 
 namespace FlightTracker.Api.Controllers
 {
@@ -19,7 +19,6 @@ namespace FlightTracker.Api.Controllers
         {
             _db = db;
         }
-
 
         [HttpGet]
         public async Task<IActionResult> GetFlights(
@@ -62,25 +61,12 @@ namespace FlightTracker.Api.Controllers
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var term = q.Trim();
-
-
                 var pattern = $"%{term}%";
 
-                if (_db.Database.IsNpgsql())
-                {
 
-                    query = query.Where(s =>
-                        (s.Callsign != null && EF.Functions.ILike(s.Callsign, pattern)) ||
-                        EF.Functions.ILike(s.Icao24, pattern));
-                }
-                else
-                {
-
-                    query = query.Where(s =>
-                        (s.Callsign != null &&
-                         EF.Functions.Like(EF.Functions.Collate(s.Callsign, "NOCASE"), pattern)) ||
-                        EF.Functions.Like(EF.Functions.Collate(s.Icao24, "NOCASE"), pattern));
-                }
+                query = query.Where(s =>
+                    (s.Callsign != null && EF.Functions.ILike(s.Callsign, pattern)) ||
+                    EF.Functions.ILike(s.Icao24, pattern));
             }
 
             if (activeOnly == true)
@@ -135,7 +121,6 @@ namespace FlightTracker.Api.Controllers
                 items
             });
         }
-
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById([FromRoute] int id)
@@ -192,6 +177,56 @@ namespace FlightTracker.Api.Controllers
                 .FirstOrDefaultAsync();
 
             return session is null ? NotFound() : Ok(session);
+        }
+
+        [HttpGet("{id:int}/trail")]
+        public async Task<IActionResult> GetTrail(
+            [FromRoute] int id,
+            [FromQuery] int minutes = 60)
+        {
+            if (minutes < 1) minutes = 1;
+            if (minutes > 360) minutes = 360;
+
+            var session = await _db.FlightSessions
+                .AsNoTracking()
+                .Where(s => s.Id == id)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.FirstSeenUtc,
+                    s.LastSeenUtc
+                })
+                .FirstOrDefaultAsync();
+
+            if (session is null)
+                return NotFound();
+
+            var toUtc = session.LastSeenUtc;
+            var fromUtc = toUtc.AddMinutes(-minutes);
+
+            var points = await _db.AircraftSnapshots
+                .AsNoTracking()
+                .Where(x => x.FlightSessionId == id
+                    && x.TimestampUtc >= fromUtc
+                    && x.TimestampUtc <= toUtc
+                    && x.Latitude != null
+                    && x.Longitude != null)
+                .OrderBy(x => x.TimestampUtc)
+                .Select(x => new TrailPoint(
+                    x.TimestampUtc,
+                    x.Latitude!.Value,
+                    x.Longitude!.Value,
+                    x.Altitude,
+                    x.Velocity,
+                    x.TrueTrack))
+                .ToListAsync();
+
+            return Ok(new TrailResponse(
+                SessionId: id,
+                FromUtc: fromUtc,
+                ToUtc: toUtc,
+                Count: points.Count,
+                Points: points));
         }
     }
 }
