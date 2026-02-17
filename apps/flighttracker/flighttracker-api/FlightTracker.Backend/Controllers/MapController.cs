@@ -50,14 +50,20 @@ public class MapController : ControllerBase
 
         var cutoff = DateTime.UtcNow.AddMinutes(-activeCutoffMinutes);
 
-        var items = await _db.FlightSessions
+        var baseSessions = _db.FlightSessions
             .AsNoTracking()
             .Where(s => s.IsActive
                 && s.LastSeenUtc >= cutoff
                 && s.LastLatitude != null && s.LastLongitude != null
                 && s.LastLatitude >= latMin && s.LastLatitude <= latMax
-                && s.LastLongitude >= lonMin && s.LastLongitude <= lonMax)
-            .Select(s => new MapActiveItem(
+                && s.LastLongitude >= lonMin && s.LastLongitude <= lonMax);
+
+        var items = await (
+            from s in baseSessions
+            join a in _db.AircraftMetadata.AsNoTracking()
+                on s.Icao24 equals a.Icao24 into meta
+            from a in meta.DefaultIfEmpty()
+            select new MapActiveItem(
                 Id: s.Id,
                 Icao24: s.Icao24,
                 Callsign: s.Callsign,
@@ -67,9 +73,18 @@ public class MapController : ControllerBase
                 Vel: s.LastVelocity,
                 Trk: s.LastTrueTrack,
                 LastSeenUtc: s.LastSeenUtc,
-                InSweden: s.LastInSweden
-            ))
-            .ToListAsync();
+                InSweden: s.LastInSweden,
+                Aircraft: a == null
+                    ? null
+                    : new AircraftInfoLite(
+                        ManufacturerName: a.ManufacturerName,
+                        Model: a.Model,
+                        Registration: a.Registration,
+                        TypeCode: a.TypeCode,
+                        OperatorName: a.OperatorName
+                    )
+            )
+        ).ToListAsync();
 
         return Ok(new MapActiveResponse(
             LastSnapshotUtc: lastSnapshotUtc,
@@ -88,10 +103,12 @@ public class MapController : ControllerBase
             return BadRequest(error);
 
         q = (q ?? "").Trim();
+        var take = ClampLimit(limit);
+
         if (q.Length < 2)
         {
             return Ok(new MapSearchResponse(
-                Limit: ClampLimit(limit),
+                Limit: take,
                 Items: Array.Empty<MapSearchItem>()
             ));
         }
@@ -101,14 +118,13 @@ public class MapController : ControllerBase
         if (lonMin > lonMax || latMin > latMax)
         {
             return Ok(new MapSearchResponse(
-                Limit: ClampLimit(limit),
+                Limit: take,
                 Items: Array.Empty<MapSearchItem>()
             ));
         }
 
         var cutoff = DateTime.UtcNow.AddMinutes(-activeCutoffMinutes);
         var pattern = $"%{q}%";
-        var take = ClampLimit(limit);
 
         var baseSessions = _db.FlightSessions
             .AsNoTracking()
@@ -128,16 +144,24 @@ public class MapController : ControllerBase
                 EF.Functions.ILike(s.Icao24, pattern) ||
                 (a != null && a.OperatorName != null && EF.Functions.ILike(a.OperatorName, pattern)) ||
                 (a != null && a.Model != null && EF.Functions.ILike(a.Model, pattern)) ||
-                (a != null && a.TypeCode != null && EF.Functions.ILike(a.TypeCode, pattern))
+                (a != null && a.TypeCode != null && EF.Functions.ILike(a.TypeCode, pattern)) ||
+                (a != null && a.Registration != null && EF.Functions.ILike(a.Registration, pattern)) ||
+                (a != null && a.ManufacturerName != null && EF.Functions.ILike(a.ManufacturerName, pattern))
             orderby s.LastSeenUtc descending
             select new MapSearchItem(
                 SessionId: s.Id,
                 Icao24: s.Icao24,
                 Callsign: s.Callsign,
                 LastSeenUtc: s.LastSeenUtc,
-                OperatorName: a != null ? a.OperatorName : null,
-                Model: a != null ? a.Model : null,
-                TypeCode: a != null ? a.TypeCode : null
+                Aircraft: a == null
+                    ? null
+                    : new AircraftInfoLite(
+                        ManufacturerName: a.ManufacturerName,
+                        Model: a.Model,
+                        Registration: a.Registration,
+                        TypeCode: a.TypeCode,
+                        OperatorName: a.OperatorName
+                    )
             )
         )
         .Take(take)
@@ -164,7 +188,6 @@ public class MapController : ControllerBase
         out double latMax,
         out string error)
     {
-
         lonMin = _bounds.DefaultLonMin;
         latMin = _bounds.DefaultLatMin;
         lonMax = _bounds.DefaultLonMax;
@@ -183,7 +206,6 @@ public class MapController : ControllerBase
                 return false;
             }
         }
-
 
         lonMin = Math.Max(lonMin, _bounds.ClampLonMin);
         lonMax = Math.Min(lonMax, _bounds.ClampLonMax);
