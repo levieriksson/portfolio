@@ -76,6 +76,7 @@ public sealed class OpenSkyIngestionRunner
             if (!doc.RootElement.TryGetProperty("states", out var states) || states.ValueKind != JsonValueKind.Array)
             {
                 _logger.LogWarning("No states array returned.");
+
                 await CloseStaleSessionsAsync(db, nowUtc, ct);
                 await db.SaveChangesAsync(ct);
 
@@ -113,20 +114,25 @@ public sealed class OpenSkyIngestionRunner
                 });
             }
 
-            await CloseStaleSessionsAsync(db, nowUtc, ct);
-
             if (snapshots.Count == 0)
             {
                 _logger.LogInformation("No snapshots in bbox this tick.");
+
+
+                await CloseStaleSessionsAsync(db, nowUtc, ct);
                 await db.SaveChangesAsync(ct);
 
                 await CleanupIfDueAsync(db, nowUtc, ct);
                 return;
             }
 
-            await SaveSnapshotsAndUpdateSessionsAsync(db, snapshots, nowUtc, ct);
 
+            await SaveSnapshotsAndUpdateSessionsAsync(db, snapshots, nowUtc, ct);
             _logger.LogInformation("Saved {Count} snapshots.", snapshots.Count);
+
+
+            await CloseStaleSessionsAsync(db, nowUtc, ct);
+            await db.SaveChangesAsync(ct);
 
             await CleanupIfDueAsync(db, nowUtc, ct);
         }
@@ -138,8 +144,8 @@ public sealed class OpenSkyIngestionRunner
             _logger.LogError(ex, "Ingestion run failed.");
             throw;
         }
-
     }
+
 
     private bool InSwedenBbox(double lat, double lon) =>
         lat >= _options.LatMin && lat <= _options.LatMax &&
