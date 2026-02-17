@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using FlightTracker.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 
 namespace FlightTracker.Api.Controllers
 {
@@ -62,10 +63,24 @@ namespace FlightTracker.Api.Controllers
             {
                 var term = q.Trim();
 
-                query = query.Where(s =>
-                    (s.Callsign != null &&
-                     EF.Functions.Like(EF.Functions.Collate(s.Callsign, "NOCASE"), $"%{term}%")) ||
-                    EF.Functions.Like(EF.Functions.Collate(s.Icao24, "NOCASE"), $"%{term}%"));
+
+                var pattern = $"%{term}%";
+
+                if (_db.Database.IsNpgsql())
+                {
+
+                    query = query.Where(s =>
+                        (s.Callsign != null && EF.Functions.ILike(s.Callsign, pattern)) ||
+                        EF.Functions.ILike(s.Icao24, pattern));
+                }
+                else
+                {
+
+                    query = query.Where(s =>
+                        (s.Callsign != null &&
+                         EF.Functions.Like(EF.Functions.Collate(s.Callsign, "NOCASE"), pattern)) ||
+                        EF.Functions.Like(EF.Functions.Collate(s.Icao24, "NOCASE"), pattern));
+                }
             }
 
             if (activeOnly == true)
