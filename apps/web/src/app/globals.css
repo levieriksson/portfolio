@@ -40,3 +40,13 @@ a {
     color-scheme: dark;
   }
 } */
+
+.ft-map-popup .maplibregl-popup-content {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.ft-map-popup .maplibregl-popup-tip {
+  display: none;
+}
