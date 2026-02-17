@@ -82,7 +82,7 @@ if (builder.Environment.IsDevelopment() ||
 
 if (enableIngestion)
 {
-    builder.Services.AddHostedService<AircraftImportHostedService>();
+
     builder.Services.AddHostedService<OpenSkyIngestionService>();
 }
 
