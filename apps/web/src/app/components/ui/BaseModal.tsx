@@ -36,8 +36,8 @@ export function BaseModal({
         elevation: 0,
         sx: {
           borderRadius: 1,
-          bgcolor: theme.palette.background.paper,
-          color: "white",
+          bgcolor: "background.paper",
+          color: "text.primary",
           p: 3,
         },
       }}
@@ -49,8 +49,7 @@ export function BaseModal({
             position: "absolute",
             top: 0,
             right: 0,
-
-            color: "white",
+            color: "text.secondary",
             zIndex: 2,
           }}
           aria-label="Close"
@@ -66,7 +65,7 @@ export function BaseModal({
               </Typography>
             )}
             {subtitle && (
-              <Typography variant="caption" sx={{ opacity: 0.7 }}>
+              <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 {subtitle}
               </Typography>
             )}
