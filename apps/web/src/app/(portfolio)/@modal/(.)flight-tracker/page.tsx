@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
+import ThemeProvider, { darkTheme } from "@/app/providers/ThemeProvider";
 import { BaseModal } from "@/app/components/ui/BaseModal";
 import { FlightTrackerLiveOverview } from "@/app/components/FlightTracker/LiveOverview";
 import { getProject } from "@/data/projects";
@@ -41,13 +42,15 @@ export default function FlightTrackerModalRoute() {
   }, [router]);
 
   return (
-    <BaseModal
-      open
-      onClose={handleClose}
-      title={project?.title ?? "Flight Tracker"}
-      subtitle={project?.subtitle ?? "Live flight stats"}
-    >
-      <FlightTrackerLiveOverview />
-    </BaseModal>
+    <ThemeProvider theme={darkTheme}>
+      <BaseModal
+        open
+        onClose={handleClose}
+        title={project?.title ?? "Flight Tracker"}
+        subtitle={project?.subtitle ?? "Live flight stats"}
+      >
+        <FlightTrackerLiveOverview />
+      </BaseModal>
+    </ThemeProvider>
   );
 }
