@@ -93,8 +93,13 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
 
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
-          value: '1'
+          value: '0'
         }
+        {
+          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
+          value: 'true'
+        }
+
       ]
     }
   }

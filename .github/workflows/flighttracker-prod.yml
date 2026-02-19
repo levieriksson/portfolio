@@ -34,25 +34,34 @@ jobs:
 
       - name: Restore
         run: |
+          set -euo pipefail
           dotnet restore "${{ env.API_CSPROJ }}"
           dotnet restore "${{ env.INGESTOR_CSPROJ }}"
 
       - name: Publish API
         run: |
+          set -euo pipefail
           dotnet publish "${{ env.API_CSPROJ }}" -c Release -o "${{ github.workspace }}/artifacts/site"
 
       - name: Publish Ingestor
         run: |
+          set -euo pipefail
           dotnet publish "${{ env.INGESTOR_CSPROJ }}" -c Release -o "${{ github.workspace }}/artifacts/ingestor"
 
       - name: Package triggered WebJob into site artifact
         run: |
           set -euo pipefail
+
           JOB_DIR="${{ github.workspace }}/artifacts/site/${{ env.WEBJOB_REL_PATH }}"
           mkdir -p "$JOB_DIR"
+
+          # Copy published ingestor output
           cp -R "${{ github.workspace }}/artifacts/ingestor/." "$JOB_DIR/"
+
+          # Copy schedule file
           cp "apps/flighttracker/flighttracker-ingestor/webjob/settings.job" "$JOB_DIR/settings.job"
 
+          # Create run.sh (what the WebJob runs)
           cat > "$JOB_DIR/run.sh" <<'EOF'
           #!/bin/bash
           set -euo pipefail
@@ -62,6 +71,7 @@ jobs:
           echo "[$(date -u)] FlightTracker ingestor finished."
           EOF
 
+          # Normalize line endings + make executable
           sed -i 's/\r$//' "$JOB_DIR/run.sh"
           chmod +x "$JOB_DIR/run.sh"
 
@@ -71,8 +81,15 @@ jobs:
           cd "${{ github.workspace }}/artifacts/site"
           zip -r "${{ github.workspace }}/artifacts/deploy.zip" .
 
+      - name: Verify WebJob folder is inside deploy.zip
+        run: |
+          set -euo pipefail
+          unzip -l "${{ github.workspace }}/artifacts/deploy.zip" | grep -i "App_Data/jobs/triggered/flighttracker-ingestor" \
+            || (echo "WEBJOB MISSING FROM ZIP" && exit 1)
+
       - name: Verify deploy zip exists
         run: |
+          set -euo pipefail
           ls -la "${{ github.workspace }}/artifacts"
           test -f "${{ github.workspace }}/artifacts/deploy.zip"
 
@@ -82,10 +99,11 @@ jobs:
           creds: >-
             {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}"}
 
-      - name: Deploy infrastructure
+      - name: Deploy infrastructure (Bicep)
         id: infra
         run: |
           set -euo pipefail
+
           OUTPUTS=$(az deployment group create \
             --name "flighttracker-prod" \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
@@ -98,18 +116,19 @@ jobs:
           PG_FQDN=$(echo "$OUTPUTS" | jq -r '.outPostgresFqdn.value')
           PG_DB=$(echo "$OUTPUTS" | jq -r '.outPostgresDbName.value')
           PG_USER=$(echo "$OUTPUTS" | jq -r '.outPostgresAdminUser.value')
+
           echo "WEBAPP_NAME=$WEBAPP_NAME" >> $GITHUB_ENV
           echo "PG_FQDN=$PG_FQDN" >> $GITHUB_ENV
           echo "PG_DB=$PG_DB" >> $GITHUB_ENV
           echo "PG_USER=$PG_USER" >> $GITHUB_ENV
 
-      - name: Apply App Settings
+      - name: Apply App Settings (pre-deploy)
         run: |
           set -euo pipefail
-          # Avoid accidentally echoing anything sensitive
           set +x
 
           CONN_STR="Host=${PG_FQDN};Port=5432;Database=${PG_DB};Username=${PG_USER};Password=${{ secrets.FT_PG_ADMIN_PASSWORD }};Ssl Mode=Require;"
+
           az webapp config appsettings set \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "${WEBAPP_NAME}" \
@@ -122,7 +141,8 @@ jobs:
               Features__AutoMigrate="false" \
               Features__EnableIngestionHostedServices="false" \
               Features__EnableSwagger="false" \
-              WEBSITE_RUN_FROM_PACKAGE="1" \
+              WEBSITES_ENABLE_APP_SERVICE_STORAGE="true" \
+              WEBSITE_RUN_FROM_PACKAGE="0" \
             --output none
 
       - name: Guardrail - forbid ASPNETCORE_URLS
@@ -145,3 +165,33 @@ jobs:
             --name "${WEBAPP_NAME}" \
             --src "${{ github.workspace }}/artifacts/deploy.zip" \
             --output none
+
+      - name: Force extracted deployment mode (post-deploy)
+        run: |
+          set -euo pipefail
+          az webapp config appsettings set \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --settings WEBSITE_RUN_FROM_PACKAGE="0" WEBSITES_ENABLE_APP_SERVICE_STORAGE="true" \
+            --output none
+
+      - name: Restart web app (post-deploy)
+        run: |
+          set -euo pipefail
+          az webapp restart \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --output none
+
+      - name: Verify WEBSITE_RUN_FROM_PACKAGE is OFF
+        run: |
+          set -euo pipefail
+          VAL=$(az webapp config appsettings list \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${WEBAPP_NAME}" \
+            --query "[?name=='WEBSITE_RUN_FROM_PACKAGE'].value | [0]" -o tsv)
+          echo "WEBSITE_RUN_FROM_PACKAGE=$VAL"
+          if [ "$VAL" != "0" ]; then
+            echo "ERROR: Expected WEBSITE_RUN_FROM_PACKAGE=0 after deploy"
+            exit 1
+          fi
