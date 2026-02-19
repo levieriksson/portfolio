@@ -101,6 +101,10 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
           value: 'false'
         }
         {
+          name: 'WEBSITES_ENABLE_APP_SERVICE_STORAGE'
+          value: 'true'
+        }
+        {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: '1'
         }
@@ -139,6 +143,11 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
           name: 'Features__EnableSwagger'
           value: featuresEnableSwagger
         }
+        {
+          name: 'WEBSITE_SKIP_RUNNING_KUDUAGENT'
+          value: 'false'
+        }
+        
       ]
     }
   }
