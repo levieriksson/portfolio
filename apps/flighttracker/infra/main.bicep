@@ -54,7 +54,20 @@ param appServiceSkuTier string = 'Basic'
 @description('App Service plan SKU name (B1 is cheapest Always On tier).')
 param appServiceSkuName string = 'B1'
 
+@description('OpenSky username (from GitHub Secret).')
+param openskyUsername string
+
+@secure()
+@description('OpenSky password (from GitHub Secret).')
+param openskyPassword string
+
+@description('Feature flags')
+param featuresAutoMigrate string = 'false'
+param featuresEnableIngestionHostedServices string = 'false'
+param featuresEnableSwagger string = 'false'
+
 var postgresFqdn = '${postgresServerName}.postgres.database.azure.com'
+var connStr = 'Host=${postgresFqdn};Port=5432;Database=${postgresDatabaseName};Username=${postgresAdminUser};Password=${postgresAdminPassword};Ssl Mode=Require;'
 
 resource plan 'Microsoft.Web/serverfarms@2025-03-01' = {
   name: appServicePlanName
@@ -78,22 +91,53 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
     httpsOnly: true
     siteConfig: {
       alwaysOn: true
-
       linuxFxVersion: 'DOTNETCORE|10.0'
       appCommandLine: 'dotnet FlightTracker.Backend.dll'
       ftpsState: 'Disabled'
-
-      
 
       appSettings: [
         {
           name: 'SCM_DO_BUILD_DURING_DEPLOYMENT'
           value: 'false'
         }
-
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
           value: '1'
+        }
+
+        {
+          name: 'ASPNETCORE_ENVIRONMENT'
+          value: 'Production'
+        }
+        {
+          name: 'Database__Provider'
+          value: 'postgres'
+        }
+        {
+          name: 'ConnectionStrings__FlightDb'
+          value: connStr
+        }
+
+        {
+          name: 'OPENSKY_USERNAME'
+          value: openskyUsername
+        }
+        {
+          name: 'OPENSKY_PASSWORD'
+          value: openskyPassword
+        }
+
+        {
+          name: 'Features__AutoMigrate'
+          value: featuresAutoMigrate
+        }
+        {
+          name: 'Features__EnableIngestionHostedServices'
+          value: featuresEnableIngestionHostedServices
+        }
+        {
+          name: 'Features__EnableSwagger'
+          value: featuresEnableSwagger
         }
       ]
     }

@@ -92,6 +92,8 @@ jobs:
             --template-file "${{ env.BICEP_FILE }}" \
             --parameters location="${AZURE_LOCATION}" \
             --parameters postgresAdminPassword="${{ secrets.FT_PG_ADMIN_PASSWORD }}" \
+            --parameters openskyUsername="${{ secrets.OPENSKY_USERNAME }}" \
+            --parameters openskyPassword="${{ secrets.OPENSKY_PASSWORD }}" \
             --query properties.outputs -o json)
 
           WEBAPP_NAME=$(echo "$OUTPUTS" | jq -r '.outWebAppName.value')
