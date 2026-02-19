@@ -18,9 +18,10 @@ var host = Host.CreateDefaultBuilder(args)
     })
     .ConfigureServices((ctx, services) =>
     {
-        var connectionString = ctx.Configuration.GetConnectionString("FlightDb");
+        var connectionString = ResolveFlightDbConnectionString(ctx.Configuration);
         if (string.IsNullOrWhiteSpace(connectionString))
-            throw new InvalidOperationException("Missing ConnectionStrings:FlightDb (set ConnectionStrings__FlightDb in Azure / local env).");
+            throw new InvalidOperationException(
+                "Missing FlightDb connection string. Set ConnectionStrings__FlightDb (App Settings) or POSTGRESQLCONNSTR_FlightDb/CUSTOMCONNSTR_FlightDb (Azure Connection Strings).");
 
         Console.WriteLine("[INGESTOR] Using PostgreSQL");
 
@@ -81,4 +82,18 @@ catch (Exception ex)
 {
     logger.LogError(ex, "Ingestor run failed.");
     return 1;
+}
+
+static string? ResolveFlightDbConnectionString(IConfiguration configuration)
+{
+    var direct = configuration.GetConnectionString("FlightDb");
+    if (!string.IsNullOrWhiteSpace(direct)) return direct;
+
+    var azurePostgres = configuration["POSTGRESQLCONNSTR_FlightDb"];
+    if (!string.IsNullOrWhiteSpace(azurePostgres)) return azurePostgres;
+
+    var azureCustom = configuration["CUSTOMCONNSTR_FlightDb"];
+    if (!string.IsNullOrWhiteSpace(azureCustom)) return azureCustom;
+
+    return null;
 }

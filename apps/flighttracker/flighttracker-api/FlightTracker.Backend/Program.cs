@@ -52,11 +52,11 @@ if (enableIngestion && !builder.Environment.IsDevelopment())
     openSky.ValidateOnStart();
 }
 
-var connectionString = builder.Configuration.GetConnectionString("FlightDb");
+var connectionString = ResolveFlightDbConnectionString(builder.Configuration);
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException(
-        "Missing ConnectionStrings:FlightDb. Set ConnectionStrings__FlightDb (local env/secret or Azure App Settings).");
+        "Missing FlightDb connection string. Set ConnectionStrings__FlightDb (App Settings) or POSTGRESQLCONNSTR_FlightDb/CUSTOMCONNSTR_FlightDb (Azure Connection Strings).");
 }
 
 builder.Services.AddDbContext<FlightDbContext>(options =>
@@ -132,3 +132,17 @@ if (enableSwagger)
 
 app.MapControllers();
 app.Run();
+
+static string? ResolveFlightDbConnectionString(IConfiguration configuration)
+{
+    var direct = configuration.GetConnectionString("FlightDb");
+    if (!string.IsNullOrWhiteSpace(direct)) return direct;
+
+    var azurePostgres = configuration["POSTGRESQLCONNSTR_FlightDb"];
+    if (!string.IsNullOrWhiteSpace(azurePostgres)) return azurePostgres;
+
+    var azureCustom = configuration["CUSTOMCONNSTR_FlightDb"];
+    if (!string.IsNullOrWhiteSpace(azureCustom)) return azureCustom;
+
+    return null;
+}
