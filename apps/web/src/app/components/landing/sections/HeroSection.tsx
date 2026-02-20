@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import {
   Box,
   Stack,
@@ -7,6 +8,7 @@ import {
   Button,
   IconButton,
   Tooltip,
+  useMediaQuery,
 } from "@mui/material";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
@@ -26,11 +28,12 @@ type TargetId = "featured" | "contact";
 
 export default function HeroSection() {
   const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
 
   const iconButtonSx = {
-    width: 56,
-    height: 56,
-    fontSize: 26,
+    width: { xs: 48, md: 56 },
+    height: { xs: 48, md: 56 },
+    fontSize: { xs: 22, md: 26 },
     border: "1px solid",
     borderColor: "divider",
     borderRadius: 2.5,
@@ -47,14 +50,22 @@ export default function HeroSection() {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
     };
 
+  const mobileGlow = alpha(
+    theme.palette.primary.main,
+    theme.palette.mode === "dark" ? 0.1 : 0.16,
+  );
+
   return (
     <Box
       sx={{
         position: "relative",
-        py: { xs: 6, md: 8 },
+        py: { xs: 5, md: 8 },
         minHeight: { xs: "auto", md: "60vh" },
-        overflow: "hidden",
-        borderRadius: 4,
+
+        overflow: { xs: "visible", md: "hidden" },
+        borderRadius: { xs: 0, md: 4 },
+
+        px: { xs: 0, md: 0 },
       }}
     >
       <Box
@@ -62,16 +73,19 @@ export default function HeroSection() {
           position: "absolute",
           inset: 0,
           pointerEvents: "none",
-          backgroundImage: `
-            radial-gradient(circle at 70% 20%, ${alpha(
-              theme.palette.primary.main,
-              theme.palette.mode === "dark" ? 0.18 : 0.3,
-            )} 0%, transparent 68%),
-            radial-gradient(circle at 85% 55%, ${alpha(
-              theme.palette.secondary.main,
-              theme.palette.mode === "dark" ? 0.16 : 0.24,
-            )} 0%, transparent 74%)
-          `,
+          backgroundImage: {
+            xs: `radial-gradient(circle at 50% 30%, ${mobileGlow} 0%, transparent 65%)`,
+            md: `
+              radial-gradient(circle at 70% 20%, ${alpha(
+                theme.palette.primary.main,
+                theme.palette.mode === "dark" ? 0.18 : 0.3,
+              )} 0%, transparent 68%),
+              radial-gradient(circle at 85% 55%, ${alpha(
+                theme.palette.secondary.main,
+                theme.palette.mode === "dark" ? 0.16 : 0.24,
+              )} 0%, transparent 74%)
+            `,
+          },
         }}
       />
 
@@ -79,7 +93,11 @@ export default function HeroSection() {
         direction={{ xs: "column", md: "row" }}
         spacing={{ xs: 4, md: 4 }}
         alignItems={{ xs: "stretch", md: "center" }}
-        sx={{ position: "relative" }}
+        sx={{
+          position: "relative",
+
+          px: { xs: 2, sm: 3, md: 0 },
+        }}
       >
         <Box sx={{ flex: 1, minWidth: 0, maxWidth: 760 }}>
           <Typography
@@ -95,7 +113,7 @@ export default function HeroSection() {
               mt: 1,
               letterSpacing: "-0.2px",
               lineHeight: 1.05,
-              fontSize: { xs: 40, md: 56 },
+              fontSize: { xs: 38, sm: 40, md: 56 },
             }}
           >
             Full-stack developer{" "}
@@ -128,7 +146,10 @@ export default function HeroSection() {
               href="#featured"
               onClick={onScrollTo("featured")}
               endIcon={<KeyboardArrowDownIcon />}
-              sx={{ borderRadius: 2 }}
+              sx={{
+                borderRadius: 2,
+                width: { xs: "100%", sm: "auto" },
+              }}
             >
               View FlightTracker
             </Button>
@@ -139,13 +160,23 @@ export default function HeroSection() {
               component="a"
               href="#contact"
               onClick={onScrollTo("contact")}
-              sx={{ borderRadius: 2 }}
+              sx={{
+                borderRadius: 2,
+                width: { xs: "100%", sm: "auto" },
+              }}
             >
               Contact
             </Button>
           </Stack>
 
-          <Stack direction="row" spacing={2} sx={{ mt: 2.25 }}>
+          <Stack
+            direction="row"
+            spacing={1.5}
+            sx={{
+              mt: 2.25,
+              justifyContent: { xs: "center", sm: "flex-start" },
+            }}
+          >
             <Tooltip title="GitHub" arrow>
               <IconButton
                 size="large"
@@ -188,7 +219,7 @@ export default function HeroSection() {
           </Stack>
         </Box>
 
-        <RadarHeroVisual />
+        {isMdUp ? <RadarHeroVisual /> : null}
       </Stack>
     </Box>
   );

@@ -41,16 +41,13 @@ export default function LandingTopNav() {
       position="sticky"
       elevation={0}
       sx={{
+        display: { xs: "none", md: "block" },
         bgcolor: bg,
         color: "text.primary",
         backdropFilter: "blur(12px)",
         backgroundImage: "none",
-
-        // override theme MuiPaper border/radius
         border: "none",
         borderRadius: 0,
-
-        // keep only what we want
         borderBottom: "1px solid",
         borderColor,
       }}
