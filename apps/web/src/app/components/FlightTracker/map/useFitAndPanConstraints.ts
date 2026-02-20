@@ -17,12 +17,16 @@ type BoundsBox = {
   north: number;
 };
 
+type PanMode = "modal" | "page";
+
 type Params = {
   containerRef: React.RefObject<HTMLDivElement | null>;
   mapRef: React.MutableRefObject<MLMap | null>;
   readyToken: number;
   fitToken?: number;
   debug?: boolean;
+
+  mode?: PanMode;
 
   fitView: FitView;
   swedenPanBounds: BoundsBox;
@@ -33,12 +37,15 @@ type Params = {
   onLogState?: (tag: string) => void;
 };
 
+const PAGE_MIN_ZOOM_DELTA = 0.25;
+
 export function useFitAndPanConstraints({
   containerRef,
   mapRef,
   readyToken,
   fitToken,
   debug = false,
+  mode = "modal",
   fitView,
   swedenPanBounds,
   softPanBounds,
@@ -54,9 +61,10 @@ export function useFitAndPanConstraints({
   const isFittingRef = useRef(false);
   const panUnlockedRef = useRef(false);
 
+  const isPage = mode === "page";
+
   const dbg = (...args: unknown[]) => {
     if (!debug) return;
-
     console.log("[useFitAndPanConstraints]", ...args);
   };
 
@@ -107,6 +115,14 @@ export function useFitAndPanConstraints({
   }
 
   function lockPanToSoftBounds(map: MLMap) {
+    if (isPage) {
+      map.dragPan.enable();
+      map.keyboard.enable();
+      panUnlockedRef.current = true;
+      applyBounds(map, softPanLngLatBounds, "softPanBounds(page)");
+      return;
+    }
+
     map.dragPan.disable();
     map.keyboard.disable();
     panUnlockedRef.current = false;
@@ -117,9 +133,14 @@ export function useFitAndPanConstraints({
     map.dragPan.enable();
     map.keyboard.enable();
     panUnlockedRef.current = true;
+
+    if (isPage) {
+      applyBounds(map, softPanLngLatBounds, "softPanBounds(page)");
+    }
   }
 
   function updatePanMode(map: MLMap) {
+    if (isPage) return;
     if (isFittingRef.current) return;
 
     const base = baseFittedZoomRef.current;
@@ -204,7 +225,12 @@ export function useFitAndPanConstraints({
           const fitted = mm.getZoom();
           baseFittedZoomRef.current = fitted;
 
-          mm.setMinZoom(fitted);
+          if (isPage) {
+            mm.setMinZoom(Math.max(0, fitted - PAGE_MIN_ZOOM_DELTA));
+            applyBounds(mm, softPanLngLatBounds, "softPanBounds(page)");
+          } else {
+            mm.setMinZoom(fitted);
+          }
 
           isFittingRef.current = false;
 
@@ -224,13 +250,15 @@ export function useFitAndPanConstraints({
 
     lockPanToSoftBounds(map);
 
+    if (isPage) return;
+
     const onZoomEnd = () => updatePanMode(map);
     map.on("zoomend", onZoomEnd);
 
     return () => {
       map.off("zoomend", onZoomEnd);
     };
-  }, [readyToken]);
+  }, [readyToken, mode]);
 
   useEffect(() => {
     if (fitToken == null || fitToken <= 0) return;

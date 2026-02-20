@@ -24,6 +24,9 @@ type Props = {
   showHeader?: boolean;
   fitToken?: number;
   debug?: boolean;
+  constraintsMode?: "modal" | "page";
+  trailEnabled?: boolean;
+  exactMode?: boolean;
 };
 
 const FIT_VIEW = {
@@ -96,13 +99,116 @@ function minutesAgoLabel(iso: string) {
   return `${mins} min ago`;
 }
 
+type TrailPointAny = unknown;
+
+type GeoJsonFeatureCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry:
+      | { type: "LineString"; coordinates: Array<[number, number]> }
+      | { type: "Point"; coordinates: [number, number] };
+    properties?: Record<string, unknown>;
+  }>;
+};
+
+const EMPTY_FC: GeoJsonFeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
+
+const TRAIL_MINUTES = 60;
+
+function num(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function getLatLon(p: TrailPointAny): { lat: number; lon: number } | null {
+  if (!p || typeof p !== "object" || Array.isArray(p)) return null;
+  const o = p as Record<string, unknown>;
+
+  const lat = num(o["lat"] ?? o["latitude"] ?? o["Latitude"]);
+  const lon = num(o["lon"] ?? o["lng"] ?? o["longitude"] ?? o["Longitude"]);
+
+  if (lat == null || lon == null) return null;
+  if (lat < -90 || lat > 90) return null;
+  if (lon < -180 || lon > 180) return null;
+
+  return { lat, lon };
+}
+
+function pickPoints(res: unknown): TrailPointAny[] {
+  if (!res || typeof res !== "object") return [];
+  const r = res as Record<string, unknown>;
+  const pts = r["points"] ?? r["Points"];
+  return Array.isArray(pts) ? (pts as TrailPointAny[]) : [];
+}
+
+function buildTrailLineFC(
+  points: TrailPointAny[],
+  sessionId: number,
+): GeoJsonFeatureCollection {
+  const coords: Array<[number, number]> = [];
+  for (const p of points) {
+    const ll = getLatLon(p);
+    if (!ll) continue;
+    coords.push([ll.lon, ll.lat]);
+  }
+
+  if (coords.length < 2) return EMPTY_FC;
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: coords },
+        properties: { sessionId },
+      },
+    ],
+  };
+}
+
+function buildTrailPointsFC(
+  points: TrailPointAny[],
+  sessionId: number,
+): GeoJsonFeatureCollection {
+  const feats: GeoJsonFeatureCollection["features"] = [];
+  let i = 0;
+
+  for (const p of points) {
+    const ll = getLatLon(p);
+    if (!ll) continue;
+
+    feats.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [ll.lon, ll.lat] },
+      properties: { sessionId, i: i++ },
+    });
+  }
+
+  return { type: "FeatureCollection", features: feats };
+}
+
 export default function InteractiveMap({
   height = "80vh",
   borderRadius = 0,
   showHeader = true,
   fitToken,
   debug = false,
+  constraintsMode = "modal",
+  trailEnabled = false,
+  exactMode = false,
 }: Props) {
+  void exactMode;
+
   const elRef = useRef<HTMLDivElement | null>(null);
 
   const [lastSnapshotUtc, setLastSnapshotUtc] = useState<string | null>(null);
@@ -116,6 +222,14 @@ export default function InteractiveMap({
 
   const [visibleItems, setVisibleItems] = useState<MapActiveItem[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  const trailCacheRef = useRef(
+    new Map<
+      number,
+      { line: GeoJsonFeatureCollection; pts: GeoJsonFeatureCollection }
+    >(),
+  );
+  const trailReqSeqRef = useRef(0);
 
   const popupRef = useRef<maplibregl.Popup | null>(null);
 
@@ -137,7 +251,6 @@ export default function InteractiveMap({
 
   const dbg = (...args: unknown[]) => {
     if (!debug) return;
-
     console.log("[InteractiveMap]", ...args);
   };
 
@@ -173,6 +286,7 @@ export default function InteractiveMap({
     readyToken,
     fitToken,
     debug,
+    mode: constraintsMode,
     fitView: FIT_VIEW,
     swedenPanBounds: SWEDEN_PAN_BOUNDS,
     softPanBounds: SOFT_PAN_BOUNDS,
@@ -201,6 +315,24 @@ export default function InteractiveMap({
       setFetchError(e instanceof Error ? e.message : String(e));
     }
   }, []);
+
+  const setSourceData = useCallback(
+    (sourceId: string, fc: GeoJsonFeatureCollection) => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      const src = map.getSource(sourceId);
+      if (!hasSetDataAny(src)) return;
+
+      src.setData(fc);
+    },
+    [mapRef],
+  );
+
+  const clearTrailAll = useCallback(() => {
+    setSourceData("trail", EMPTY_FC);
+    setSourceData("trail-points", EMPTY_FC);
+  }, [setSourceData]);
 
   const selectItem = useCallback(
     (i: MapActiveItem) => {
@@ -302,7 +434,6 @@ export default function InteractiveMap({
     };
   }, [readyToken, mapRef, selectItem]);
 
-  // Selected aircraft highlight source update (halo/ring layers are added in useMapLibreMap)
   useEffect(() => {
     if (readyToken <= 0) return;
     const map = mapRef.current;
@@ -329,7 +460,6 @@ export default function InteractiveMap({
     });
   }, [readyToken, mapRef, selectedItem]);
 
-  // Popup info box near selected aircraft
   useEffect(() => {
     if (readyToken <= 0) return;
     const map = mapRef.current;
@@ -352,6 +482,9 @@ export default function InteractiveMap({
     if (kmh != null) parts.push(`${kmh} km/h`);
     if (ago) parts.push(ago);
 
+    void callsign;
+    void parts;
+
     const html = buildSelectedAircraftPopupHtml(i);
 
     if (!popupRef.current) {
@@ -368,7 +501,48 @@ export default function InteractiveMap({
   }, [readyToken, mapRef, selectedItem]);
 
   useEffect(() => {
+    if (readyToken <= 0) return;
+
+    if (!trailEnabled || selectedId == null) {
+      trailReqSeqRef.current += 1;
+      clearTrailAll();
+      return;
+    }
+
+    const cached = trailCacheRef.current.get(selectedId);
+    if (cached) {
+      setSourceData("trail", cached.line);
+      setSourceData("trail-points", cached.pts);
+      return;
+    }
+
+    const seq = (trailReqSeqRef.current += 1);
+
+    void (async () => {
+      try {
+        const res = await apiGet<unknown>(
+          `/api/flights/${selectedId}/trail?minutes=${TRAIL_MINUTES}`,
+        );
+
+        if (trailReqSeqRef.current !== seq) return;
+
+        const points = pickPoints(res);
+        const fcLine = buildTrailLineFC(points, selectedId);
+        const fcPts = buildTrailPointsFC(points, selectedId);
+
+        trailCacheRef.current.set(selectedId, { line: fcLine, pts: fcPts });
+        setSourceData("trail", fcLine);
+        setSourceData("trail-points", fcPts);
+      } catch {
+        if (trailReqSeqRef.current !== seq) return;
+        clearTrailAll();
+      }
+    })();
+  }, [readyToken, selectedId, trailEnabled, clearTrailAll, setSourceData]);
+
+  useEffect(() => {
     return () => {
+      trailReqSeqRef.current += 1;
       popupRef.current?.remove();
       popupRef.current = null;
     };
@@ -417,13 +591,7 @@ export default function InteractiveMap({
         />
 
         <Box sx={{ flex: 1, minHeight: 0 }}>
-          <Box
-            ref={elRef}
-            sx={{
-              height: "100%",
-              width: "100%",
-            }}
-          />
+          <Box ref={elRef} sx={{ height: "100%", width: "100%" }} />
         </Box>
       </Box>
     </Box>

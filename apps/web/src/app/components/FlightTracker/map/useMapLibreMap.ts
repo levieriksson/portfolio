@@ -43,7 +43,6 @@ export function useMapLibreMap({
 
   const dbg = (...args: unknown[]) => {
     if (!debug) return;
-
     console.log("[useMapLibreMap]", ...args);
   };
 
@@ -133,6 +132,47 @@ export function useMapLibreMap({
               "circle-color": "rgba(255,255,255,0.00)",
               "circle-stroke-width": 2,
               "circle-stroke-color": "rgba(255,255,255,0.85)",
+            },
+          },
+          "aircraft",
+        );
+
+        map.addSource("trail", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+
+        map.addLayer(
+          {
+            id: "trail-line",
+            type: "line",
+            source: "trail",
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+              "line-color": "rgba(255,255,255,0.85)",
+              "line-width": 2,
+              "line-opacity": 0.9,
+            },
+          },
+          "aircraft",
+        );
+
+        map.addSource("trail-points", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+
+        map.addLayer(
+          {
+            id: "trail-points-circle",
+            type: "circle",
+            source: "trail-points",
+            paint: {
+              "circle-radius": 3,
+              "circle-color": "rgba(255,255,255,0.9)",
+              "circle-opacity": 0.95,
+              "circle-stroke-width": 1,
+              "circle-stroke-color": "rgba(0,0,0,0.35)",
             },
           },
           "aircraft",

@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { FlightTrackerAnalyticsPage } from "@/app/components/FlightTracker/FlightTrackerAnalyticsPage";
 
 export default function FlightTrackerPage() {
-  redirect("/?project=flight-tracker");
+  return <FlightTrackerAnalyticsPage />;
 }

@@ -102,23 +102,27 @@ export function MapSearchPanel({
         bgcolor: t.palette.background.default,
       })}
     >
-      <Box
-        sx={{
-          px: 2,
-          py: 1.25,
-          display: "flex",
-          flexDirection: "column",
-          gap: 1,
-        }}
-      >
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          Search
-        </Typography>
+      <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "baseline",
+            justifyContent: "space-between",
+            mb: 1,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            Search
+          </Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            {filtered.length} of {items.length}
+          </Typography>
+        </Box>
 
         <OutlinedInput
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="callsign, icao24, operator, model…"
+          placeholder="Callsign / ICAO24 / operator"
           fullWidth
           size="small"
           inputProps={{ autoComplete: "off" }}
@@ -131,14 +135,10 @@ export function MapSearchPanel({
             borderRadius: 1,
             bgcolor: t.palette.background.paper,
             fontSize: 14,
-            "& .MuiOutlinedInput-input": { py: 0.75 },
-            "& input::placeholder": { opacity: 0.7 },
+            "& .MuiOutlinedInput-input": { py: 0.8 },
+            "& input::placeholder": { opacity: 0.5 },
           })}
         />
-
-        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          {filtered.length} of {items.length}
-        </Typography>
       </Box>
 
       <Divider />
