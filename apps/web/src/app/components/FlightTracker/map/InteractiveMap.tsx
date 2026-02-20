@@ -24,6 +24,7 @@ type Props = {
   showHeader?: boolean;
   fitToken?: number;
   debug?: boolean;
+  constraintsMode?: "modal" | "page";
 };
 
 const FIT_VIEW = {
@@ -102,6 +103,7 @@ export default function InteractiveMap({
   showHeader = true,
   fitToken,
   debug = false,
+  constraintsMode = "modal",
 }: Props) {
   const elRef = useRef<HTMLDivElement | null>(null);
 
@@ -173,6 +175,7 @@ export default function InteractiveMap({
     readyToken,
     fitToken,
     debug,
+    mode: constraintsMode,
     fitView: FIT_VIEW,
     swedenPanBounds: SWEDEN_PAN_BOUNDS,
     softPanBounds: SOFT_PAN_BOUNDS,
