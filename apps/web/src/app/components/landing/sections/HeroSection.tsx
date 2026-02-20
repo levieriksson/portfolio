@@ -17,8 +17,8 @@ import { alpha, useTheme } from "@mui/material/styles";
 import RadarHeroVisual from "../ui/RadarHeroVisual";
 
 const LINKS = {
-  github: "https://github.com/<your-handle>",
-  linkedin: "https://www.linkedin.com/in/<your-handle>/",
+  github: "https://github.com/levieriksson",
+  linkedin: "https://www.linkedin.com/in/levi-eriksson-731132ab/",
   email: "mailto:levieriksson@hotmail.com",
 };
 
