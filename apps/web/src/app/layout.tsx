@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Portfolio",
-  description: "Levis portfolio",
+  title: "Levi Eriksson | Full Stack Developer | .NET React Azure",
+  description:
+    "Full-stack developer building production-ready web applications with .NET, React, PostgreSQL, and Azure. Creator of FlightTracker – a real-time aircraft analytics platform with background ingestion, geospatial filtering, and cloud deployment.",
 };
 
 export default function RootLayout({
