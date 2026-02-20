@@ -8,8 +8,13 @@ import ExperienceSection from "./sections/ExperienceSection";
 import SkillsSection from "./sections/SkillsSection";
 import AboutSection from "./sections/AboutSection";
 import ContactSection from "./sections/ContactSection";
+import { useEffect } from "react";
+import { prefetchStatsOverview } from "../FlightTracker/statsOverviewPrefetch";
 
 export default function LandingPage() {
+  useEffect(() => {
+    void prefetchStatsOverview();
+  }, []);
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       <LandingTopNav />

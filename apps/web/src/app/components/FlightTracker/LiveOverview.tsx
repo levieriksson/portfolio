@@ -9,7 +9,6 @@ import {
   AccordionDetails,
   Typography,
   Collapse,
-  Button,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -20,6 +19,10 @@ import { formatLocalDateTime, utcTodayString } from "@/lib/datetime";
 import { FlightsBrowser } from "./FlightsBrowser";
 import { FlightDetailsDrawer } from "./FlightDetailsDrawer";
 import { InteractiveMapModalButton } from "./map/InteractiveMapModalButton";
+import {
+  getPrefetchedStatsOverview,
+  setPrefetchedStatsOverview,
+} from "./statsOverviewPrefetch";
 
 const RADIUS = 1;
 
@@ -35,7 +38,9 @@ function LabelWithHelp({ label, help }: { label: string; help: string }) {
 }
 
 export function FlightTrackerLiveOverview() {
-  const [data, setData] = useState<StatsOverview | null>(null);
+  const [data, setData] = useState<StatsOverview | null>(() =>
+    getPrefetchedStatsOverview(),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const [browserOpen, setBrowserOpen] = useState(false);
@@ -53,19 +58,20 @@ export function FlightTrackerLiveOverview() {
         const res = await apiGet<StatsOverview>("/api/stats/overview");
         if (!mounted) return;
         setData(res);
+        setPrefetchedStatsOverview(res);
         setError(null);
       } catch (e) {
         if (!mounted) return;
-        setError(e instanceof Error ? e.message : "Failed to load");
+        if (!data) setError(e instanceof Error ? e.message : "Failed to load");
       }
     }
 
-    load();
-    const id = setInterval(load, 30_000);
+    void load();
+    const id = window.setInterval(load, 30_000);
 
     return () => {
       mounted = false;
-      clearInterval(id);
+      window.clearInterval(id);
     };
   }, []);
 

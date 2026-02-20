@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import FlightTrackerModalRoute from "@/app/(portfolio)/@modal/(.)flight-tracker-preview/page";
 
 export default function Page() {
-  redirect("/flight-tracker-preview");
+  return <FlightTrackerModalRoute />;
 }
