@@ -23,26 +23,32 @@ import { FlightTrackerAnalyticsOverview } from "@/app/components/FlightTracker/a
 type ViewKey = "map" | "overview";
 
 const TAB_WIDTH = 120;
+const RADIUS = 1;
 
 export function FlightTrackerAnalyticsPage() {
   const project = getProject("flight-tracker");
   const [view, setView] = useState<ViewKey>("map");
 
   const [trailEnabled, setTrailEnabled] = useState(false);
-  const [exactMode, setExactMode] = useState(false);
+
+  const exactMode = false;
 
   const trailHelp =
     "Trail: shows the recent path of the selected aircraft (e.g. last ~60 minutes).";
   const exactHelp =
-    "Exact mode: only show aircraft strictly inside Sweden (future: polygon boundary). Off = nearby tracking area.";
+    "Coming soon: polygon-based Sweden boundary (true Sweden-only).";
 
   return (
     <Box sx={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
-      <AppBar position="static" elevation={0}>
-        <Toolbar sx={{ gap: 2, minHeight: 42, px: 2 }}>
+      <AppBar
+        position="static"
+        elevation={0}
+        sx={{ bgcolor: "background.paper" }}
+      >
+        <Toolbar sx={{ gap: 2, minHeight: 56, px: 2 }}>
           <Typography
             variant="subtitle1"
-            fontWeight={600}
+            fontWeight={800}
             noWrap
             sx={{ flex: 1, minWidth: 0, lineHeight: 1.1 }}
           >
@@ -50,68 +56,73 @@ export function FlightTrackerAnalyticsPage() {
           </Typography>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Tooltip title={trailHelp} arrow>
-              <FormControlLabel
-                sx={{ m: 0 }}
-                control={
-                  <Switch
-                    size="small"
-                    checked={trailEnabled}
-                    onChange={(e) => setTrailEnabled(e.target.checked)}
-                  />
-                }
-                label={
-                  <Box
-                    sx={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 0.5,
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                      Trail
-                    </Typography>
-                    <InfoOutlinedIcon sx={{ fontSize: 16, opacity: 0.7 }} />
-                  </Box>
-                }
-              />
-            </Tooltip>
+            <FormControlLabel
+              sx={{
+                m: 0,
+                "& .MuiFormControlLabel-label": {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                  fontSize: 14,
+                  fontWeight: 700,
+                },
+              }}
+              control={
+                <Switch
+                  checked={trailEnabled}
+                  onChange={(e) => setTrailEnabled(e.target.checked)}
+                />
+              }
+              label={
+                <>
+                  <span>Trail</span>
+                  <Tooltip title={trailHelp} arrow>
+                    <InfoOutlinedIcon
+                      sx={{ fontSize: 18, opacity: 0.7, cursor: "help" }}
+                    />
+                  </Tooltip>
+                </>
+              }
+            />
 
-            <Tooltip title={exactHelp} arrow>
-              <FormControlLabel
-                sx={{ m: 0 }}
-                control={
-                  <Switch
-                    size="small"
-                    checked={exactMode}
-                    onChange={(e) => setExactMode(e.target.checked)}
-                  />
-                }
-                label={
-                  <Box
-                    sx={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 0.5,
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                      Exact
-                    </Typography>
-                    <InfoOutlinedIcon sx={{ fontSize: 16, opacity: 0.7 }} />
-                  </Box>
-                }
-              />
-            </Tooltip>
+            <FormControlLabel
+              disabled
+              sx={{
+                m: 0,
+                opacity: 0.65,
+                "& .MuiFormControlLabel-label": {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                  fontSize: 14,
+                  fontWeight: 700,
+                },
+              }}
+              control={<Switch checked={false} disabled />}
+              label={
+                <>
+                  <span>Exact</span>
+                  <Tooltip title={exactHelp} arrow>
+                    <InfoOutlinedIcon
+                      sx={{ fontSize: 18, opacity: 0.7, cursor: "help" }}
+                    />
+                  </Tooltip>
+                </>
+              }
+            />
           </Box>
 
           <Button
             component={Link}
             href="/"
-            color="inherit"
             variant="outlined"
-            size="small"
-            sx={{ py: 0.25 }}
+            size="medium"
+            sx={{
+              borderRadius: RADIUS,
+              textTransform: "none",
+              fontWeight: 700,
+              px: 2,
+            }}
           >
             Back to portfolio
           </Button>
@@ -124,16 +135,16 @@ export function FlightTrackerAnalyticsPage() {
           indicatorColor="primary"
           sx={{
             px: 2,
-            minHeight: 32,
+            minHeight: 40,
             "& .MuiTabs-flexContainer": { gap: 1 },
             "& .MuiTab-root": {
               width: TAB_WIDTH,
               minWidth: TAB_WIDTH,
-              minHeight: 32,
+              minHeight: 40,
               px: 1.25,
-              py: 0.5,
+              py: 0.75,
               textTransform: "none",
-              fontWeight: 500,
+              fontWeight: 600,
               letterSpacing: 0,
             },
           }}

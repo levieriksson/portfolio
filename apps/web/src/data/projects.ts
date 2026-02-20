@@ -5,7 +5,7 @@ export const projects: Project[] = [
     key: "flight-tracker",
     title: "Flight Tracker",
     subtitle: "Live flight statistics",
-    route: "/flight-tracker",
+    route: "/flight-tracker-preview",
     stats: [
       { label: "Current Flights", value: 123 },
       { label: "Highest Altitude", value: "12,000 m" },

@@ -17,16 +17,9 @@ type Props = {
   onExactModeChange: (v: boolean) => void;
 };
 
-export function MapToolbar({
-  trailEnabled,
-  onTrailEnabledChange,
-  exactMode,
-  onExactModeChange,
-}: Props) {
+export function MapToolbar({ trailEnabled, onTrailEnabledChange }: Props) {
   const trailHelp =
     "Trail: shows the recent path of the selected aircraft (e.g. last ~60 minutes).";
-  const exactHelp =
-    "Exact mode: only show aircraft strictly inside Sweden (future: polygon boundary). Off = nearby tracking area.";
 
   return (
     <Box
@@ -51,47 +44,47 @@ export function MapToolbar({
         Controls
       </Typography>
 
-      <Tooltip title={trailHelp} arrow>
-        <FormControlLabel
-          sx={{ m: 0 }}
-          control={
-            <Switch
-              size="small"
-              checked={trailEnabled}
-              onChange={(e) => onTrailEnabledChange(e.target.checked)}
-            />
-          }
-          label={
-            <Box
-              sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
-            >
-              <Typography variant="caption">Trail</Typography>
-              <InfoOutlinedIcon sx={{ fontSize: 16, opacity: 0.7 }} />
-            </Box>
-          }
-        />
-      </Tooltip>
+      <FormControlLabel
+        sx={{ m: 0 }}
+        control={
+          <Switch
+            size="small"
+            checked={trailEnabled}
+            onChange={(e) => onTrailEnabledChange(e.target.checked)}
+          />
+        }
+        label={
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+            <Typography variant="caption">Trail</Typography>
+            <Tooltip title={trailHelp} arrow>
+              <InfoOutlinedIcon
+                sx={{ fontSize: 16, opacity: 0.7, cursor: "help" }}
+              />
+            </Tooltip>
+          </Box>
+        }
+      />
 
-      <Tooltip title={exactHelp} arrow>
-        <FormControlLabel
-          sx={{ m: 0 }}
-          control={
-            <Switch
-              size="small"
-              checked={exactMode}
-              onChange={(e) => onExactModeChange(e.target.checked)}
-            />
-          }
-          label={
-            <Box
-              sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
+      <FormControlLabel
+        disabled
+        sx={{ m: 0, opacity: 0.6 }}
+        control={
+          <Switch size="small" checked={false} onChange={() => {}} disabled />
+        }
+        label={
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+            <Typography variant="caption">Exact</Typography>
+            <Tooltip
+              title="Coming soon: polygon-based Sweden boundary (true Sweden-only)."
+              arrow
             >
-              <Typography variant="caption">Exact</Typography>
-              <InfoOutlinedIcon sx={{ fontSize: 16, opacity: 0.7 }} />
-            </Box>
-          }
-        />
-      </Tooltip>
+              <InfoOutlinedIcon
+                sx={{ fontSize: 16, opacity: 0.7, cursor: "help" }}
+              />
+            </Tooltip>
+          </Box>
+        }
+      />
     </Box>
   );
 }

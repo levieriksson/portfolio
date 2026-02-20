@@ -136,7 +136,7 @@ export default function LandingTopNav() {
             size="small"
             variant="contained"
             component={NextLink}
-            href="/flight-tracker"
+            href="/flight-tracker-preview"
             endIcon={<LaunchIcon fontSize="small" />}
             sx={{
               borderRadius: 2,
