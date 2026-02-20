@@ -37,9 +37,7 @@ function readPreferredMode(): State {
   if (stored === "light" || stored === "dark")
     return { mode: stored, source: "user" };
 
-  const prefersDark =
-    window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? true;
-  return { mode: prefersDark ? "dark" : "light", source: "system" };
+  return { mode: "dark", source: "system" };
 }
 
 export function PortfolioThemeProvider({ children }: { children: ReactNode }) {
@@ -54,23 +52,14 @@ export function PortfolioThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (state.source !== "system") return;
-
-    const mql = window.matchMedia?.("(prefers-color-scheme: dark)");
-    if (!mql) return;
-
-    const onChange = (e: MediaQueryListEvent) => {
-      setState({ mode: e.matches ? "dark" : "light", source: "system" });
-    };
-
-    mql.addEventListener?.("change", onChange);
-    return () => mql.removeEventListener?.("change", onChange);
-  }, [state.source]);
-
-  useEffect(() => {
     if (state.source !== "user") return;
+
     localStorage.setItem(STORAGE_KEY, state.mode);
   }, [state.mode, state.source]);
+
+  useEffect(() => {
+    document.documentElement.style.colorScheme = state.mode;
+  }, [state.mode]);
 
   const theme = useMemo(() => createPortfolioTheme(state.mode), [state.mode]);
 
