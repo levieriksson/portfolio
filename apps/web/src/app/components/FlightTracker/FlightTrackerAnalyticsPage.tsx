@@ -6,11 +6,16 @@ import {
   AppBar,
   Box,
   Button,
+  FormControlLabel,
+  Switch,
   Tab,
   Tabs,
   Toolbar,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+
 import { getProject } from "@/data/projects";
 import InteractiveMap from "@/app/components/FlightTracker/map/InteractiveMap";
 import { FlightTrackerAnalyticsOverview } from "@/app/components/FlightTracker/analytics/FlightTrackerAnalyticsOverview";
@@ -22,6 +27,14 @@ const TAB_WIDTH = 120;
 export function FlightTrackerAnalyticsPage() {
   const project = getProject("flight-tracker");
   const [view, setView] = useState<ViewKey>("map");
+
+  const [trailEnabled, setTrailEnabled] = useState(false);
+  const [exactMode, setExactMode] = useState(false);
+
+  const trailHelp =
+    "Trail: shows the recent path of the selected aircraft (e.g. last ~60 minutes).";
+  const exactHelp =
+    "Exact mode: only show aircraft strictly inside Sweden (future: polygon boundary). Off = nearby tracking area.";
 
   return (
     <Box sx={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
@@ -35,6 +48,62 @@ export function FlightTrackerAnalyticsPage() {
           >
             {project?.title ?? "Flight Tracker"} — Analytics
           </Typography>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Tooltip title={trailHelp} arrow>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Switch
+                    size="small"
+                    checked={trailEnabled}
+                    onChange={(e) => setTrailEnabled(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                      Trail
+                    </Typography>
+                    <InfoOutlinedIcon sx={{ fontSize: 16, opacity: 0.7 }} />
+                  </Box>
+                }
+              />
+            </Tooltip>
+
+            <Tooltip title={exactHelp} arrow>
+              <FormControlLabel
+                sx={{ m: 0 }}
+                control={
+                  <Switch
+                    size="small"
+                    checked={exactMode}
+                    onChange={(e) => setExactMode(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box
+                    sx={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.5,
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                      Exact
+                    </Typography>
+                    <InfoOutlinedIcon sx={{ fontSize: 16, opacity: 0.7 }} />
+                  </Box>
+                }
+              />
+            </Tooltip>
+          </Box>
 
           <Button
             component={Link}
@@ -92,6 +161,8 @@ export function FlightTrackerAnalyticsPage() {
                 borderRadius={0}
                 showHeader={false}
                 constraintsMode="page"
+                trailEnabled={trailEnabled}
+                exactMode={exactMode}
               />
             </Box>
           </Box>
