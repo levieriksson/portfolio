@@ -19,7 +19,7 @@ type Props = {
   items: MapActiveItem[];
   selectedId: number | null;
   onSelect: (item: MapActiveItem) => void;
-  width?: number;
+  width?: number | string;
 };
 
 function norm(s: string) {

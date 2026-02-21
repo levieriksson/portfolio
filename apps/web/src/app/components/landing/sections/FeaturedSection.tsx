@@ -1,11 +1,23 @@
-import { Box, Paper, Stack, Typography, Button, Divider } from "@mui/material";
+import {
+  Box,
+  Paper,
+  Stack,
+  Typography,
+  Button,
+  Divider,
+  useMediaQuery,
+} from "@mui/material";
 import NextLink from "next/link";
 import LaunchIcon from "@mui/icons-material/Launch";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import Section from "../ui/Section";
 import { LINKS } from "@/lib/links";
+import { useTheme } from "@mui/material/styles";
 
 export default function FeaturedSection() {
+  const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
+
   return (
     <Section id="featured" eyebrow="Featured project" title="FlightTracker">
       <Paper sx={{ p: { xs: 2.5, md: 3 } }}>
@@ -78,7 +90,7 @@ export default function FeaturedSection() {
             <Button
               variant="contained"
               component={NextLink}
-              href={LINKS.project}
+              href={isMdUp ? LINKS.project : LINKS.projectFullScreen}
               endIcon={<LaunchIcon />}
             >
               Open project
