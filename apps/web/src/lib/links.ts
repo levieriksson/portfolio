@@ -4,4 +4,5 @@ export const LINKS = {
   email: "mailto:levieriksson@hotmail.com",
   repo: "https://github.com/levieriksson/portfolio",
   project: "/flight-tracker-preview",
+  projectFullScreen: "/flight-tracker",
 } as const;

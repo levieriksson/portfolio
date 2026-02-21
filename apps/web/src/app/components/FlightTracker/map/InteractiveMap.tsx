@@ -3,13 +3,19 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl, { Map as MLMap } from "maplibre-gl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Typography } from "@mui/material";
+import {
+  Box,
+  Drawer,
+  Typography,
+  useMediaQuery,
+  useTheme,
+  ButtonBase,
+} from "@mui/material";
 
 import {
   toAircraftFeatureCollection,
   type AircraftFeatureCollection,
 } from "./aircraftGeoJson";
-
 import { apiGet } from "@/lib/api";
 import type { MapActiveItem, MapActiveResponse } from "@/lib/types";
 import { useMapLibreMap } from "./useMapLibreMap";
@@ -208,12 +214,14 @@ export default function InteractiveMap({
   exactMode = false,
 }: Props) {
   void exactMode;
-
+  const MOBILE_SEARCH_HEADER_H = 44;
+  const MOBILE_SEARCH_HEADER_PT = 1;
   const elRef = useRef<HTMLDivElement | null>(null);
-
   const [lastSnapshotUtc, setLastSnapshotUtc] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
+  const theme = useTheme();
+  const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [items, setItems] = useState<MapActiveItem[]>([]);
   const itemsRef = useRef<MapActiveItem[]>([]);
   useEffect(() => {
@@ -349,6 +357,14 @@ export default function InteractiveMap({
       });
     },
     [mapRef],
+  );
+
+  const handleSelectFromPanel = useCallback(
+    (i: MapActiveItem) => {
+      selectItem(i);
+      if (!isMdUp) setMobileSearchOpen(false);
+    },
+    [selectItem, isMdUp],
   );
 
   const selectedItem = useMemo(() => {
@@ -574,25 +590,134 @@ export default function InteractiveMap({
       )}
 
       <Box
-        sx={(t) => ({
+        sx={{
           display: "flex",
           flex: 1,
           minHeight: 0,
-          border: `1px solid ${t.palette.divider}`,
-          borderRadius,
+          border: { xs: "none", md: "1px solid" },
+          borderColor: { xs: "transparent", md: "divider" },
+          borderRadius: { xs: 0, md: borderRadius },
           overflow: "hidden",
-        })}
+          position: "relative",
+          bgcolor: "background.paper",
+        }}
       >
-        <MapSearchPanel
-          items={items}
-          selectedId={selectedId}
-          onSelect={selectItem}
-          width={320}
-        />
+        {isMdUp && (
+          <MapSearchPanel
+            items={items}
+            selectedId={selectedId}
+            onSelect={handleSelectFromPanel}
+            width={320}
+          />
+        )}
 
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <Box ref={elRef} sx={{ height: "100%", width: "100%" }} />
         </Box>
+
+        {!isMdUp && (
+          <>
+            <Box
+              sx={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 10,
+                bgcolor: "background.paper",
+                borderTop: "1px solid",
+                borderColor: "divider",
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                pb: "env(safe-area-inset-bottom)",
+              }}
+            >
+              <ButtonBase
+                onClick={() => setMobileSearchOpen((v) => !v)}
+                sx={{
+                  width: "100%",
+                  height: MOBILE_SEARCH_HEADER_H,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  pt: MOBILE_SEARCH_HEADER_PT,
+                  gap: 1,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 4,
+                    borderRadius: 999,
+                    bgcolor: "text.disabled",
+                  }}
+                />
+                <Typography
+                  sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1 }}
+                >
+                  Search
+                </Typography>
+              </ButtonBase>
+            </Box>
+
+            <Drawer
+              anchor="bottom"
+              variant="persistent"
+              open={mobileSearchOpen}
+              PaperProps={{
+                sx: {
+                  height: "70dvh",
+                  borderTopLeftRadius: 16,
+                  borderTopRightRadius: 16,
+                  overflow: "hidden",
+                  bgcolor: "background.paper",
+                  backgroundImage: "none",
+                },
+              }}
+              ModalProps={{ keepMounted: true }}
+            >
+              <ButtonBase
+                onClick={() => setMobileSearchOpen(false)}
+                sx={{
+                  width: "100%",
+                  height: MOBILE_SEARCH_HEADER_H,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
+                  pt: MOBILE_SEARCH_HEADER_PT,
+                  gap: 1,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 4,
+                    borderRadius: 999,
+                    bgcolor: "text.disabled",
+                  }}
+                />
+                <Typography
+                  sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1 }}
+                >
+                  Search
+                </Typography>
+              </ButtonBase>
+
+              <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+                <MapSearchPanel
+                  items={items}
+                  selectedId={selectedId}
+                  onSelect={handleSelectFromPanel}
+                  width="100%"
+                />
+              </Box>
+            </Drawer>
+          </>
+        )}
       </Box>
     </Box>
   );
