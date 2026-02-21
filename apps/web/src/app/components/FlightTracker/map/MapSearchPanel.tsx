@@ -125,7 +125,10 @@ export function MapSearchPanel({
           placeholder="Callsign / ICAO24 / operator"
           fullWidth
           size="small"
-          inputProps={{ autoComplete: "off" }}
+          inputProps={{
+            autoComplete: "off",
+            inputMode: "search",
+          }}
           startAdornment={
             <InputAdornment position="start">
               <SearchIcon fontSize="small" />
@@ -135,7 +138,10 @@ export function MapSearchPanel({
             borderRadius: 1,
             bgcolor: t.palette.background.paper,
             fontSize: 14,
-            "& .MuiOutlinedInput-input": { py: 0.8 },
+            "& .MuiOutlinedInput-input": {
+              py: 0.8,
+              fontSize: { xs: 16, sm: 14 },
+            },
             "& input::placeholder": { opacity: 0.5 },
           })}
         />
