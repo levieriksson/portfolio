@@ -9,29 +9,21 @@ import {
   FormControlLabel,
   IconButton,
   Switch,
-  Tab,
-  Tabs,
   Toolbar,
   Tooltip,
   Typography,
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-
-import { getProject } from "@/data/projects";
-import InteractiveMap from "@/app/components/FlightTracker/map/InteractiveMap";
-import { FlightTrackerAnalyticsOverview } from "@/app/components/FlightTracker/analytics/FlightTrackerAnalyticsOverview";
-import { useMediaQuery } from "@mui/material";
-import { useTheme } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-type ViewKey = "map" | "overview";
+import { useMediaQuery, useTheme } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import { getProject } from "@/data/projects";
+import { FlightTrackerTabsShell } from "@/app/components/FlightTracker/shell/FlightTrackerTabsShell";
 
-const TAB_WIDTH = 120;
 const RADIUS = 1;
 
 export function FlightTrackerAnalyticsPage() {
   const project = getProject("flight-tracker");
-  const [view, setView] = useState<ViewKey>("map");
-
   const [trailEnabled, setTrailEnabled] = useState(false);
 
   const exactMode = false;
@@ -134,103 +126,39 @@ export function FlightTrackerAnalyticsPage() {
             </Button>
           </Toolbar>
         ) : (
-          <Toolbar
-            sx={{
-              minHeight: 48,
-              px: 1.5,
-              py: 1,
-              position: "relative",
-            }}
-          >
-            <IconButton
-              component={Link}
-              href="/"
-              aria-label="Back"
-              sx={{
-                position: "absolute",
-                left: 8,
-                top: "80%",
-                transform: "translateY(-50%)",
-              }}
-            >
-              <ArrowBackIcon fontSize="large" />
-            </IconButton>
+          <Toolbar sx={{ minHeight: 52, px: 1.5 }}>
+            <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
+              <Box sx={{ width: 40 }} />
 
-            <Typography
-              variant="subtitle1"
-              fontWeight={800}
-              noWrap
-              sx={{ width: "100%", textAlign: "center", lineHeight: 1.1 }}
-            >
-              {project?.title ?? "Flight Tracker"}
-            </Typography>
+              <Typography
+                variant="subtitle1"
+                fontWeight={800}
+                noWrap
+                sx={{ flex: 1, textAlign: "center", lineHeight: 1.1 }}
+              >
+                {project?.title ?? "Flight Tracker"}
+              </Typography>
+
+              <IconButton
+                component={Link}
+                href="/"
+                aria-label="Close"
+                sx={{ mr: -0.5 }}
+              >
+                <CloseIcon fontSize="medium" />
+              </IconButton>
+            </Box>
           </Toolbar>
         )}
-
-        <Tabs
-          value={view}
-          onChange={(_, v: ViewKey) => setView(v)}
-          textColor="inherit"
-          indicatorColor="primary"
-          variant={isMdUp ? "standard" : "fullWidth"}
-          sx={{
-            px: 2,
-            minHeight: { xs: 34, md: 40 },
-            "& .MuiTabs-flexContainer": { gap: isMdUp ? 1 : 0 },
-            "& .MuiTab-root": {
-              width: isMdUp ? TAB_WIDTH : "auto",
-              minWidth: isMdUp ? TAB_WIDTH : 0,
-              minHeight: { xs: 34, md: 40 },
-              px: 1.25,
-              py: { xs: 0.25, md: 0.75 },
-              textTransform: "none",
-              fontWeight: 600,
-              letterSpacing: 0,
-            },
-            ...(isMdUp
-              ? {}
-              : {
-                  "& .MuiTabs-indicator": {
-                    width: "50% !important",
-                    left: "25% !important",
-                  },
-                }),
-          }}
-        >
-          <Tab value="map" label="Map" />
-          {isMdUp && <Tab value="overview" label="Overview" />}
-        </Tabs>
       </AppBar>
 
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        {view === "map" ? (
-          <Box sx={{ height: "100%", minHeight: 0, p: { xs: 0, md: 1.5 } }}>
-            <Box
-              sx={(t) => ({
-                height: "100%",
-                minHeight: 0,
-                border: { xs: "none", md: `1px solid ${t.palette.divider}` },
-                borderRadius: { xs: 0, md: 0 },
-                overflow: "hidden",
-                bgcolor: "background.paper",
-                position: "relative",
-              })}
-            >
-              <InteractiveMap
-                height="100%"
-                borderRadius={0}
-                showHeader={false}
-                constraintsMode="page"
-                trailEnabled={trailEnabled}
-                exactMode={exactMode}
-              />
-            </Box>
-          </Box>
-        ) : (
-          <Box sx={{ height: "100%", minHeight: 0, p: 2, overflow: "hidden" }}>
-            <FlightTrackerAnalyticsOverview />
-          </Box>
-        )}
+        <FlightTrackerTabsShell
+          variant="page"
+          defaultTab="map"
+          trailEnabled={trailEnabled}
+          exactMode={exactMode}
+        />
       </Box>
     </Box>
   );
