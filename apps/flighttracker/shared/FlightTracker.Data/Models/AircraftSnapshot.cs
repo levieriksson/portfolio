@@ -24,4 +24,7 @@ public class AircraftSnapshot
     public bool InSweden { get; set; }
     public bool? OnGround { get; set; }
 
+    public bool IsValid { get; set; } = true;
+    public string? InvalidReason { get; set; }
+
 }

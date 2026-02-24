@@ -40,7 +40,7 @@ namespace FlightTracker.Api.Controllers
 
             var activeNow = await activeNowQuery.CountAsync();
 
-            var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastInSweden);
+            var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastKnownInSweden);
 
             var flightsToday = await baseQuery.CountAsync(s =>
                 s.FirstSeenUtc >= startOfToday && s.FirstSeenUtc < startOfTomorrow);
@@ -94,7 +94,7 @@ namespace FlightTracker.Api.Controllers
             var activeNowQuery = baseQuery.Where(s => s.IsActive && s.LastSeenUtc >= activeCutoff);
 
             var activeNow = await activeNowQuery.CountAsync();
-            var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastInSweden);
+            var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastKnownInSweden);
 
             var flightsToday = await baseQuery.CountAsync(s =>
                 s.FirstSeenUtc >= startOfToday && s.FirstSeenUtc < startOfTomorrow);

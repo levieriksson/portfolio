@@ -15,4 +15,10 @@ public sealed class IngestionOptions
 
     [Range(1, 72)]
     public int CleanupEveryHours { get; set; } = 6;
+
+    [Range(1, 100000)]
+    public int MaxAltitudeM { get; set; } = 20000;
+
+    [Range(0.1, 5000)]
+    public double MaxVelocityMps { get; set; } = 400;
 }

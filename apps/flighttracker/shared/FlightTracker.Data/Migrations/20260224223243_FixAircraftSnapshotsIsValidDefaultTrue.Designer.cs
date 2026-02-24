@@ -3,6 +3,7 @@ using System;
 using FlightTracker.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FlightTracker.Data.Migrations
 {
     [DbContext(typeof(FlightDbContext))]
-    partial class FlightDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260224223243_FixAircraftSnapshotsIsValidDefaultTrue")]
+    partial class FixAircraftSnapshotsIsValidDefaultTrue
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -155,10 +158,6 @@ namespace FlightTracker.Data.Migrations
 
                     b.HasIndex("FlightSessionId");
 
-                    b.HasIndex("TimestampUtc");
-
-                    b.HasIndex("FlightSessionId", "TimestampUtc");
-
                     b.HasIndex("Icao24", "TimestampUtc");
 
                     b.ToTable("AircraftSnapshots");
@@ -173,9 +172,6 @@ namespace FlightTracker.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AirborneSnapshotCount")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("AirborneTickCount")
                         .HasColumnType("integer");
 
                     b.Property<double?>("AvgAltitude")
@@ -240,13 +236,7 @@ namespace FlightTracker.Data.Migrations
 
                     b.HasIndex("EnteredSwedenUtc");
 
-                    b.HasIndex("FirstSeenUtc");
-
-                    b.HasIndex("LastSnapshotUtc");
-
                     b.HasIndex("Icao24", "IsActive");
-
-                    b.HasIndex("IsActive", "LastSeenUtc");
 
                     b.ToTable("FlightSessions");
                 });
