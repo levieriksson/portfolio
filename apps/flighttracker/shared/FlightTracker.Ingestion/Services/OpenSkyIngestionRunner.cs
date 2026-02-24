@@ -99,7 +99,7 @@ public sealed class OpenSkyIngestionRunner
                 var lon = stateArray[5].GetDoubleOrNull();
                 if (lat is null || lon is null) continue;
 
-                if (!InSwedenBbox(lat.Value, lon.Value)) continue;
+                if (!InRegionBbox(lat.Value, lon.Value)) continue;
 
                 var tsUnix = stateArray[4].ValueKind == JsonValueKind.Number ? stateArray[4].GetInt64() : 0;
                 if (tsUnix <= 0) continue;
@@ -125,14 +125,14 @@ public sealed class OpenSkyIngestionRunner
                     Velocity = stateArray[9].GetDoubleOrNull(),
                     TrueTrack = trueTrack,
                     TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(tsUnix).UtcDateTime,
-                    InSweden = true,
+                    InSweden = false,
                     OnGround = onGround,
                 });
             }
 
             if (snapshots.Count == 0)
             {
-                _logger.LogInformation("No snapshots in bbox this tick.");
+                _logger.LogInformation("No snapshots in region this tick.");
 
 
                 await CloseStaleSessionsAsync(db, nowUtc, ct);
@@ -163,9 +163,9 @@ public sealed class OpenSkyIngestionRunner
     }
 
 
-    private bool InSwedenBbox(double lat, double lon) =>
-    lat >= _region.LatMin && lat <= _region.LatMax &&
-    lon >= _region.LonMin && lon <= _region.LonMax;
+    private bool InRegionBbox(double lat, double lon) =>
+        lat >= _region.LatMin && lat <= _region.LatMax &&
+        lon >= _region.LonMin && lon <= _region.LonMax;
 
     private static double? NormalizeTrack(double? t)
     {
@@ -264,8 +264,7 @@ public sealed class OpenSkyIngestionRunner
                         : alt;
                 }
 
-                session.EnteredSwedenUtc ??= snap.TimestampUtc;
-                session.ExitedSwedenUtc = null;
+
             }
         }
 
@@ -282,7 +281,8 @@ public sealed class OpenSkyIngestionRunner
             LastSeenUtc = snap.TimestampUtc,
             IsActive = true,
             SnapshotCount = 0,
-            EnteredSwedenUtc = snap.InSweden ? snap.TimestampUtc : null,
+            EnteredSwedenUtc = null,
+            ExitedSwedenUtc = null,
             LastLatitude = snap.Latitude,
             LastLongitude = snap.Longitude,
             LastAltitude = snap.Altitude,
