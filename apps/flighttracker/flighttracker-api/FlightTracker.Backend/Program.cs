@@ -2,8 +2,8 @@ using FlightTracker.Backend.Options;
 using FlightTracker.Backend.Services;
 using FlightTracker.Data;
 using FlightTracker.Ingestion.Helpers;
+using FlightTracker.Ingestion.Options;
 using FlightTracker.Ingestion.Services;
-using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,21 +35,33 @@ var openSky = builder.Services.AddOptions<OpenSkyOptions>()
 
         if (!string.IsNullOrWhiteSpace(u)) o.Username = u;
         if (!string.IsNullOrWhiteSpace(p)) o.Password = p;
-    })
+    });
+
+builder.Services.AddOptions<RegionBoundsOptions>()
+    .Bind(builder.Configuration.GetSection("RegionBounds"))
+    .ValidateDataAnnotations();
+
+builder.Services.AddOptions<IngestionOptions>()
+    .Bind(builder.Configuration.GetSection("Ingestion"))
+    .ValidateDataAnnotations()
     .Validate(o => o.SessionRetentionDays >= o.SnapshotRetentionDays,
-        "SessionRetentionDays must be >= SnapshotRetentionDays to avoid FK issues.");
+        "Ingestion:SessionRetentionDays must be >= Ingestion:SnapshotRetentionDays.");
 
 if (enableIngestion)
 {
     openSky
         .ValidateDataAnnotations()
         .Validate(o => !string.IsNullOrWhiteSpace(o.Username) && !string.IsNullOrWhiteSpace(o.Password),
-            "Missing OpenSky credentials. Set OPENSKY_USERNAME / OPENSKY_PASSWORD.");
+            "Missing OpenSky credentials. Set OPENSKY_USERNAME / OPENSKY_PASSWORD.")
+        .Validate(o => !string.IsNullOrWhiteSpace(o.TokenUrl),
+            "Missing OpenSky:TokenUrl (required for token auth).");
 }
 
 if (enableIngestion && !builder.Environment.IsDevelopment())
 {
     openSky.ValidateOnStart();
+    builder.Services.AddOptions<RegionBoundsOptions>().ValidateOnStart();
+    builder.Services.AddOptions<IngestionOptions>().ValidateOnStart();
 }
 
 var connectionString = builder.Configuration.GetConnectionString("FlightDb");
@@ -72,8 +84,6 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 builder.Services.AddSingleton<OpenSkyAuthService>();
 builder.Services.AddSingleton<OpenSkyIngestionRunner>();
 
-
-
 if (builder.Environment.IsDevelopment() ||
     builder.Configuration.GetValue<bool>("Features:AutoMigrate"))
 {
@@ -82,7 +92,6 @@ if (builder.Environment.IsDevelopment() ||
 
 if (enableIngestion)
 {
-
     builder.Services.AddHostedService<OpenSkyIngestionService>();
 }
 
