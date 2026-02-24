@@ -146,8 +146,8 @@ public sealed class OpenSkyIngestionRunner
                     TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(tsUnix).UtcDateTime,
                     InSweden = _sweden.IsInside(lat.Value, lon.Value),
                     OnGround = onGround,
-                    IsValid = reason == null,
-                    InvalidReason = reason == null ? null : reason,
+                    IsValid = true,
+                    InvalidReason = reason,
                 });
             }
 
@@ -280,10 +280,14 @@ public sealed class OpenSkyIngestionRunner
                 session.LastKnownInSweden = snap.InSweden;
                 session.SnapshotCount++;
 
+                if (snap.OnGround == false)
+                {
+                    session.AirborneTickCount++;
+                }
+
                 if (!string.IsNullOrWhiteSpace(snap.Callsign))
                     session.Callsign = snap.Callsign;
 
-                // Airborne-only altitude stats. Outliers will already be nulled by SnapshotSanity.
                 if (snap.OnGround == false && snap.Altitude is double alt && alt > 0)
                 {
                     session.AirborneSnapshotCount++;
@@ -312,6 +316,7 @@ public sealed class OpenSkyIngestionRunner
             LastSeenUtc = snap.TimestampUtc,
             IsActive = true,
             SnapshotCount = 0,
+            AirborneTickCount = 0,
             EnteredSwedenUtc = snap.InSweden ? snap.TimestampUtc : null,
             ExitedSwedenUtc = null,
             LastLatitude = snap.Latitude,

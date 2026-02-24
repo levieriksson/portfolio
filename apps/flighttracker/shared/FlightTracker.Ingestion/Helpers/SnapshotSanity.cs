@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace FlightTracker.Ingestion.Helpers;
 
 public static class SnapshotSanity
@@ -11,35 +13,39 @@ public static class SnapshotSanity
             int maxAltitudeM,
             double maxVelocityMps)
     {
+        if (latitude is null || longitude is null)
+            return (false, altitude, velocity, "missing_position");
 
-        if (latitude is null || longitude is null) return (false, altitude, velocity, "missing_position");
-        if (!IsFinite(latitude.Value) || !IsFinite(longitude.Value)) return (false, altitude, velocity, "nan_or_inf_position");
-        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return (false, altitude, velocity, "position_out_of_range");
+        if (!IsFinite(latitude.Value) || !IsFinite(longitude.Value))
+            return (false, altitude, velocity, "nan_or_inf_position");
 
-        string? reason = null;
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
+            return (false, altitude, velocity, "position_out_of_range");
 
+        var reasons = new List<string>(2);
 
         if (altitude is double a)
         {
             if (!IsFinite(a) || a < -500 || a > maxAltitudeM)
             {
                 altitude = null;
-                reason = "altitude_outlier";
+                reasons.Add("altitude_outlier");
             }
         }
-
 
         if (velocity is double v)
         {
             if (!IsFinite(v) || v < 0 || v > maxVelocityMps)
             {
                 velocity = null;
-                reason ??= "velocity_outlier";
+                reasons.Add("velocity_outlier");
             }
         }
 
+        var reason = reasons.Count == 0 ? null : string.Join(";", reasons);
         return (true, altitude, velocity, reason);
     }
 
-    private static bool IsFinite(double v) => !(double.IsNaN(v) || double.IsInfinity(v));
+    private static bool IsFinite(double v) =>
+        !(double.IsNaN(v) || double.IsInfinity(v));
 }

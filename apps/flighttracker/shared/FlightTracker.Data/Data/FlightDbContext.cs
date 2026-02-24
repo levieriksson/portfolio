@@ -1,4 +1,3 @@
-using System;
 using FlightTracker.Data.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,11 +26,26 @@ public class FlightDbContext : DbContext
         modelBuilder.Entity<FlightSession>()
             .HasIndex(s => s.EnteredSwedenUtc);
 
+        modelBuilder.Entity<FlightSession>()
+            .HasIndex(s => new { s.IsActive, s.LastSeenUtc });
+
+        modelBuilder.Entity<FlightSession>()
+            .HasIndex(s => s.FirstSeenUtc);
+
+        modelBuilder.Entity<FlightSession>()
+            .HasIndex(s => s.LastSnapshotUtc);
+
         modelBuilder.Entity<AircraftSnapshot>()
             .HasIndex(s => s.FlightSessionId);
 
         modelBuilder.Entity<AircraftSnapshot>()
             .HasIndex(s => new { s.Icao24, s.TimestampUtc });
+
+        modelBuilder.Entity<AircraftSnapshot>()
+            .HasIndex(s => s.TimestampUtc);
+
+        modelBuilder.Entity<AircraftSnapshot>()
+            .HasIndex(s => new { s.FlightSessionId, s.TimestampUtc });
 
         modelBuilder.Entity<AircraftMetadata>()
             .HasKey(a => a.Icao24);
