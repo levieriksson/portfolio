@@ -99,6 +99,14 @@ public sealed class OpenSkyIngestionRunner
 
                 var trueTrack = NormalizeTrack(stateArray[10].GetDoubleOrNull());
 
+                bool? onGround = null;
+                if (stateArray.GetArrayLength() > 8)
+                {
+                    onGround =
+                        stateArray[8].ValueKind == JsonValueKind.True ? true :
+                        stateArray[8].ValueKind == JsonValueKind.False ? false :
+                        (bool?)null;
+                }
                 snapshots.Add(new AircraftSnapshot
                 {
                     Icao24 = stateArray[0].GetString() ?? "",
@@ -110,7 +118,8 @@ public sealed class OpenSkyIngestionRunner
                     Velocity = stateArray[9].GetDoubleOrNull(),
                     TrueTrack = trueTrack,
                     TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(tsUnix).UtcDateTime,
-                    InSweden = true
+                    InSweden = true,
+                    OnGround = onGround,
                 });
             }
 

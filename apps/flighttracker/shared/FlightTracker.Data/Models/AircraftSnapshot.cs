@@ -22,7 +22,6 @@ public class AircraftSnapshot
     public FlightSession? FlightSession { get; set; }
 
     public bool InSweden { get; set; }
-
-
+    public bool? OnGround { get; set; }
 
 }
