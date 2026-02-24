@@ -34,5 +34,5 @@ public class FlightSession
     public double? LastTrueTrack { get; set; }
 
     public DateTime? LastSnapshotUtc { get; set; }
-    public bool LastInSweden { get; set; }
+    public bool LastKnownInSweden { get; set; }
 }
