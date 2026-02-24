@@ -93,17 +93,13 @@ export function StatsPanel({
     return <Box sx={{ opacity: 0.7 }}>Loading live stats…</Box>;
   }
 
-  const cutoff = data.activeNowCutoffMinutes ?? 25;
+  const cutoff = data.activeCutoffMinutes;
 
   const helpFlightsToday =
-    "Flights today = sessions first observed inside the Sweden tracking area during the current UTC day.";
-  const helpActiveNow =
-    `Active now = sessions seen within the last ${cutoff} minutes (UTC) inside the Sweden tracking area. ` +
-    "This is time-window based to avoid inflating counts from long session timeouts.";
-  const helpSnapshots =
-    "Snapshots = raw position samples ingested from OpenSky (multiple per flight).";
-  const helpSessions =
-    "Sessions = aggregated flight tracks built from snapshots. A session closes after a data gap.";
+    "Flights today = sessions first observed (in-region) during the current UTC day.";
+  const helpActiveNow = `Active now = sessions seen within the last ${cutoff} minutes (UTC).`;
+  const helpInSwedenNow = `In Sweden now = active sessions currently inside Sweden (polygon) within the last ${cutoff} minutes.`;
+  const helpUniqueAircraft = `Unique aircraft = distinct ICAO24 seen in the last ${data.windowHours} hours.`;
 
   return (
     <Box
@@ -126,33 +122,35 @@ export function StatsPanel({
       >
         <StatCard
           label={
-            <LabelWithHelp
-              label="Entered Sweden today"
-              help={helpFlightsToday}
-            />
+            <LabelWithHelp label="Flights today" help={helpFlightsToday} />
           }
-          value={data.flightsTodayInSweden}
+          value={data.flightsToday}
           onClick={() =>
             onOpenBrowse({ date: utcTodayString(), activeOnly: false })
           }
           borderRadius={RADIUS}
         />
+
         <StatCard
           label={<LabelWithHelp label="Active now" help={helpActiveNow} />}
-          value={data.activeFlightsInSweden}
+          value={data.activeNow}
           onClick={() =>
             onOpenBrowse({ date: utcTodayString(), activeOnly: true })
           }
           borderRadius={RADIUS}
         />
+
         <StatCard
-          label={<LabelWithHelp label="Snapshots" help={helpSnapshots} />}
-          value={data.snapshots}
+          label={<LabelWithHelp label="In Sweden now" help={helpInSwedenNow} />}
+          value={data.inSwedenNow}
           borderRadius={RADIUS}
         />
+
         <StatCard
-          label={<LabelWithHelp label="Sessions" help={helpSessions} />}
-          value={data.sessions}
+          label={
+            <LabelWithHelp label="Unique aircraft" help={helpUniqueAircraft} />
+          }
+          value={data.uniqueAircraftInWindow}
           borderRadius={RADIUS}
         />
       </Box>
@@ -182,15 +180,17 @@ export function StatsPanel({
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 0, px: 2 }}>
           <Typography variant="body2" sx={{ opacity: 0.85, lineHeight: 1.6 }}>
-            <b>Flights today</b>: sessions first observed inside the Sweden
-            tracking area during the current UTC day.
+            <b>Flights today</b>: sessions first observed inside the ingestion
+            region during the current UTC day.
             <br />
-            <b>Active now</b>: seen within the last <b>{cutoff} minutes</b>{" "}
-            (UTC).
+            <b>Active now</b>: sessions seen within the last{" "}
+            <b>{cutoff} minutes</b> (UTC).
             <br />
-            <b>Snapshots</b>: raw samples (many per flight).
+            <b>In Sweden now</b>: active sessions whose latest position is
+            currently inside Sweden (polygon-based).
             <br />
-            <b>Sessions</b>: aggregated tracks; closed after a data gap.
+            <b>Unique aircraft</b>: distinct ICAO24 seen within the last{" "}
+            <b>{data.windowHours} hours</b>.
             <br />
             Data source: OpenSky. Coverage and update frequency can vary.
           </Typography>
