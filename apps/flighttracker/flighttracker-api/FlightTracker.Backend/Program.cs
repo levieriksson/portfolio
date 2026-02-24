@@ -83,6 +83,7 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 builder.Services.AddSingleton<OpenSkyAuthService>();
 builder.Services.AddSingleton<OpenSkyIngestionRunner>();
+builder.Services.AddSingleton<SwedenTerritoryService>();
 
 if (builder.Environment.IsDevelopment() ||
     builder.Configuration.GetValue<bool>("Features:AutoMigrate"))

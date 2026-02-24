@@ -66,6 +66,7 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<OpenSkyAuthService>();
         services.AddSingleton<OpenSkyIngestionRunner>();
+        services.AddSingleton<SwedenTerritoryService>();
     })
     .ConfigureLogging(logging =>
     {
