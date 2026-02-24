@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, Box, IconButton, Typography, useTheme } from "@mui/material";
+import { Dialog, Box, IconButton, Typography } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import Grow from "@mui/material/Grow";
 
@@ -19,8 +19,6 @@ export function BaseModal({
   title,
   subtitle,
 }: BaseModalProps) {
-  const theme = useTheme();
-
   return (
     <Dialog
       open={open}
@@ -38,17 +36,22 @@ export function BaseModal({
           borderRadius: 1,
           bgcolor: "background.paper",
           color: "text.primary",
-          p: 3,
+          height: { xs: "92vh", md: "85vh" },
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         },
       }}
     >
-      <Box sx={{ position: "relative" }}>
+      <Box
+        sx={{ px: 2, pt: 2, pb: 1.5, position: "relative", flex: "0 0 auto" }}
+      >
         <IconButton
           onClick={onClose}
           sx={{
             position: "absolute",
-            top: 0,
-            right: 0,
+            top: 8,
+            right: 8,
             color: "text.secondary",
             zIndex: 2,
           }}
@@ -58,7 +61,7 @@ export function BaseModal({
         </IconButton>
 
         {(title || subtitle) && (
-          <Box sx={{ pr: 6, mb: 2 }}>
+          <Box sx={{ pr: 6, pl: 2, transform: "translateY(8px)" }}>
             {title && (
               <Typography variant="h6" sx={{ m: 0, lineHeight: 1.1 }}>
                 {title}
@@ -71,7 +74,9 @@ export function BaseModal({
             )}
           </Box>
         )}
+      </Box>
 
+      <Box sx={{ flex: 1, minHeight: 0, px: 2, pb: 2, overflow: "hidden" }}>
         {children}
       </Box>
     </Dialog>

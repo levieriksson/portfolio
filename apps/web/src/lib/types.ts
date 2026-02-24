@@ -1,11 +1,15 @@
 export type StatsOverview = {
   utcNow: string;
-  activeNowCutoffMinutes: number;
-  flightsTodayInSweden: number;
-  activeFlightsInSweden: number;
+  windowHours: number;
+  activeCutoffMinutes: number;
   lastSnapshotUtc: string | null;
-  snapshots: number;
-  sessions: number;
+
+  activeNow: number;
+  inSwedenNow: number;
+
+  flightsToday: number;
+  sessionsStartedInWindow: number;
+  uniqueAircraftInWindow: number;
 };
 
 export type AircraftInfoLite = {

@@ -17,6 +17,7 @@ public class FlightSession
     public string? CloseReason { get; set; }
 
     public int SnapshotCount { get; set; }
+    public int AirborneSnapshotCount { get; set; }
 
     public double? MaxAltitude { get; set; }
     public double? AvgAltitude { get; set; }

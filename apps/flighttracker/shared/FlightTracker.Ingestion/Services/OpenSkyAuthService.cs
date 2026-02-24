@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using FlightTracker.Ingestion.Options;
 
 namespace FlightTracker.Ingestion.Services;
 
