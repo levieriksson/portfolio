@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using FlightTracker.Ingestion.Helpers;
+using FlightTracker.Ingestion.Options;
 
 namespace FlightTracker.Ingestion.Services;
 
@@ -17,22 +18,28 @@ public sealed class OpenSkyIngestionRunner
     private readonly IServiceProvider _sp;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly OpenSkyAuthService _auth;
-    private readonly OpenSkyOptions _options;
+    private readonly OpenSkyOptions _openSky;
+    private readonly RegionBoundsOptions _region;
+    private readonly IngestionOptions _ingestion;
     private readonly ILogger<OpenSkyIngestionRunner> _logger;
 
     private DateTime _lastCleanupUtc = DateTime.MinValue;
 
     public OpenSkyIngestionRunner(
-        IServiceProvider sp,
-        IHttpClientFactory httpClientFactory,
-        OpenSkyAuthService auth,
-        IOptions<OpenSkyOptions> options,
-        ILogger<OpenSkyIngestionRunner> logger)
+    IServiceProvider sp,
+    IHttpClientFactory httpClientFactory,
+    OpenSkyAuthService auth,
+    IOptions<OpenSkyOptions> openSky,
+    IOptions<RegionBoundsOptions> region,
+    IOptions<IngestionOptions> ingestion,
+    ILogger<OpenSkyIngestionRunner> logger)
     {
         _sp = sp;
         _httpClientFactory = httpClientFactory;
         _auth = auth;
-        _options = options.Value;
+        _openSky = openSky.Value;
+        _region = region.Value;
+        _ingestion = ingestion.Value;
         _logger = logger;
     }
 
@@ -45,9 +52,9 @@ public sealed class OpenSkyIngestionRunner
 
             var inv = CultureInfo.InvariantCulture;
 
-            var statesUrl = $"{_options.StatesUrl}" +
-                            $"?lamin={_options.LatMin.ToString(inv)}&lamax={_options.LatMax.ToString(inv)}" +
-                            $"&lomin={_options.LonMin.ToString(inv)}&lomax={_options.LonMax.ToString(inv)}";
+            var statesUrl = $"{_openSky.StatesUrl}" +
+                $"?lamin={_region.LatMin.ToString(inv)}&lamax={_region.LatMax.ToString(inv)}" +
+                $"&lomin={_region.LonMin.ToString(inv)}&lomax={_region.LonMax.ToString(inv)}";
 
             var token = await _auth.GetAccessTokenAsync(ct);
             var client = _httpClientFactory.CreateClient("opensky");
@@ -157,8 +164,8 @@ public sealed class OpenSkyIngestionRunner
 
 
     private bool InSwedenBbox(double lat, double lon) =>
-        lat >= _options.LatMin && lat <= _options.LatMax &&
-        lon >= _options.LonMin && lon <= _options.LonMax;
+    lat >= _region.LatMin && lat <= _region.LatMax &&
+    lon >= _region.LonMin && lon <= _region.LonMax;
 
     private static double? NormalizeTrack(double? t)
     {
@@ -171,7 +178,7 @@ public sealed class OpenSkyIngestionRunner
 
     private async Task CloseStaleSessionsAsync(FlightDbContext db, DateTime nowUtc, CancellationToken ct)
     {
-        var gap = TimeSpan.FromSeconds(_options.SessionGapSeconds);
+        var gap = TimeSpan.FromSeconds(_ingestion.SessionGapSeconds);
         var cutoff = nowUtc - gap;
 
         var stale = await db.FlightSessions
@@ -195,7 +202,7 @@ public sealed class OpenSkyIngestionRunner
         DateTime nowUtc,
         CancellationToken ct)
     {
-        var gap = TimeSpan.FromSeconds(_options.SessionGapSeconds);
+        var gap = TimeSpan.FromSeconds(_ingestion.SessionGapSeconds);
 
         var icaos = snapshots.Select(s => s.Icao24).Distinct().ToList();
 
@@ -287,7 +294,7 @@ public sealed class OpenSkyIngestionRunner
 
     private async Task CleanupIfDueAsync(FlightDbContext db, DateTime nowUtc, CancellationToken ct)
     {
-        var hours = _options.CleanupEveryHours <= 0 ? 6 : _options.CleanupEveryHours;
+        var hours = _ingestion.CleanupEveryHours <= 0 ? 6 : _ingestion.CleanupEveryHours;
         var every = TimeSpan.FromHours(hours);
 
         if (_lastCleanupUtc != DateTime.MinValue && (nowUtc - _lastCleanupUtc) < every)
@@ -300,8 +307,8 @@ public sealed class OpenSkyIngestionRunner
 
     private async Task CleanupOldDataAsync(FlightDbContext db, DateTime nowUtc, CancellationToken ct)
     {
-        var snapCutoff = nowUtc.AddDays(-_options.SnapshotRetentionDays);
-        var sessionCutoff = nowUtc.AddDays(-_options.SessionRetentionDays);
+        var snapCutoff = nowUtc.AddDays(-_ingestion.SnapshotRetentionDays);
+        var sessionCutoff = nowUtc.AddDays(-_ingestion.SessionRetentionDays);
 
         var deletedSnaps = await db.AircraftSnapshots
             .Where(s => s.TimestampUtc < snapCutoff)
