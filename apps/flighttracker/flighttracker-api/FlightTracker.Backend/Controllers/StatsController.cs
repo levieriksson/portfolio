@@ -19,7 +19,7 @@ namespace FlightTracker.Api.Controllers
         }
 
         [HttpGet("overview")]
-        public async Task<IActionResult> GetOverview([FromQuery] int windowHours = 24, [FromQuery] int activeCutoffMinutes = 15)
+        public async Task<IActionResult> GetOverview([FromQuery] int windowHours = 24, [FromQuery] int activeCutoffMinutes = 25)
         {
             if (windowHours < 1) windowHours = 1;
             if (windowHours > 168) windowHours = 168;
@@ -78,7 +78,7 @@ namespace FlightTracker.Api.Controllers
         }
 
         [HttpGet("today")]
-        public async Task<IActionResult> GetToday([FromQuery] int activeCutoffMinutes = 15)
+        public async Task<IActionResult> GetToday([FromQuery] int activeCutoffMinutes = 25)
         {
             if (activeCutoffMinutes < 5) activeCutoffMinutes = 5;
             if (activeCutoffMinutes > 180) activeCutoffMinutes = 180;
