@@ -1,51 +1,49 @@
-using System.Collections.Immutable;
+using System.Linq;
+using NetTopologySuite.Geometries;
+using NetTopologySuite.Geometries.Prepared;
+using NetTopologySuite.IO.GeoJSON;
 
 namespace FlightTracker.Ingestion.Services;
 
 public sealed class SwedenTerritoryService
 {
-    private static readonly ImmutableArray<(double Lat, double Lon)> _polygon =
-        ImmutableArray.Create(
-            (69.0599, 20.0000),
-            (68.5000, 23.0000),
-            (67.0000, 24.0000),
-            (65.0000, 24.5000),
-            (63.0000, 20.0000),
-            (62.0000, 18.0000),
-            (60.0000, 17.0000),
-            (58.0000, 16.0000),
-            (56.0000, 15.0000),
-            (55.2000, 13.0000),
-            (55.1331, 11.0000),
-            (57.0000, 12.0000),
-            (59.0000, 11.0000),
-            (61.0000, 12.0000),
-            (63.0000, 13.0000),
-            (65.0000, 15.0000),
-            (67.0000, 17.0000),
-            (68.5000, 18.0000)
-        );
+    private readonly IPreparedGeometry _prepared;
+
+    public SwedenTerritoryService()
+    {
+        var geo = LoadSwedenGeometry();
+        _prepared = PreparedGeometryFactory.Prepare(geo);
+    }
 
     public bool IsInside(double latitude, double longitude)
     {
-        var inside = false;
-        var n = _polygon.Length;
+        var p = new Point(longitude, latitude) { SRID = 4326 };
+        return _prepared.Covers(p);
+    }
 
-        for (int i = 0, j = n - 1; i < n; j = i++)
-        {
-            var xi = _polygon[i].Lon;
-            var yi = _polygon[i].Lat;
-            var xj = _polygon[j].Lon;
-            var yj = _polygon[j].Lat;
+    private static Geometry LoadSwedenGeometry()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        var path = Path.Combine(baseDir, "Geo", "sweden.geojson");
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"Missing GeoJSON file: {path}");
 
-            var intersect =
-                ((yi > latitude) != (yj > latitude)) &&
-                (longitude < (xj - xi) * (latitude - yi) / ((yj - yi) + double.Epsilon) + xi);
+        var geoJson = File.ReadAllText(path);
 
-            if (intersect)
-                inside = !inside;
-        }
+        var reader = new GeoJsonReader(new GeometryFactory(new PrecisionModel(), 4326));
+        var obj = reader.Read<NetTopologySuite.Features.FeatureCollection>(geoJson);
 
-        return inside;
+        var geoms = obj
+            .Select(f => f.Geometry)
+            .Where(g => g != null)
+            .ToArray();
+
+        if (geoms.Length == 0)
+            throw new InvalidOperationException("GeoJSON contained no geometries.");
+
+        if (geoms.Length == 1)
+            return geoms[0];
+
+        return new GeometryCollection(geoms, new GeometryFactory(new PrecisionModel(), 4326)).Union();
     }
 }
