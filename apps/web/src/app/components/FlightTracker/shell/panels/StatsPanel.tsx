@@ -96,7 +96,7 @@ export function StatsPanel({
   const cutoff = data.activeCutoffMinutes;
 
   const helpFlightsToday =
-    "Flights today = sessions first observed during the current UTC day.";
+    "Flights today = sessions seen since 00:00 in Sweden time (Europe/Stockholm).";
   const helpActiveNow = `Active now = sessions seen within the last ${cutoff} minutes (UTC).`;
   const helpInSwedenNow =
     "In Sweden now = active sessions whose latest known position is inside Sweden (polygon).";
@@ -181,17 +181,15 @@ export function StatsPanel({
         </AccordionSummary>
         <AccordionDetails sx={{ pt: 0, px: 2 }}>
           <Typography variant="body2" sx={{ opacity: 0.85, lineHeight: 1.6 }}>
-            <b>Flights today</b>: sessions first observed inside the ingestion
-            region during the current UTC day.
+            <b>Flights today</b>: sessions seen since 00:00 in Sweden time
+            (Europe/Stockholm).
             <br />
-            <b>Active now</b>: sessions seen within the last{" "}
-            <b>{cutoff} minutes</b> (UTC).
+            <b>Active now</b>: seen within the last <b>{cutoff} minutes</b>{" "}
+            (UTC).
             <br />
-            <b>In Sweden now</b>: active sessions whose latest position is
-            currently inside Sweden (polygon-based).
+            <b>Snapshots</b>: raw samples (many per flight).
             <br />
-            <b>Unique aircraft</b>: distinct ICAO24 seen within the last{" "}
-            <b>{data.windowHours} hours</b>.
+            <b>Sessions</b>: aggregated tracks; closed after a data gap.
             <br />
             Data source: OpenSky. Coverage and update frequency can vary.
           </Typography>
