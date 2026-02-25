@@ -20,7 +20,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-simply-carousel": "^9.1.13",
-    "react-stacked-center-carousel": "^1.0.14"
+    "react-stacked-center-carousel": "^1.0.14",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@types/node": "^20",
