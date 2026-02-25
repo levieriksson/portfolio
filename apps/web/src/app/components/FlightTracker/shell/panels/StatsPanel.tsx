@@ -96,9 +96,10 @@ export function StatsPanel({
   const cutoff = data.activeCutoffMinutes;
 
   const helpFlightsToday =
-    "Flights today = sessions first observed (in-region) during the current UTC day.";
+    "Flights today = sessions first observed during the current UTC day.";
   const helpActiveNow = `Active now = sessions seen within the last ${cutoff} minutes (UTC).`;
-  const helpInSwedenNow = `In Sweden now = active sessions currently inside Sweden (polygon) within the last ${cutoff} minutes.`;
+  const helpInSwedenNow =
+    "In Sweden now = active sessions whose latest known position is inside Sweden (polygon).";
   const helpUniqueAircraft = `Unique aircraft = distinct ICAO24 seen in the last ${data.windowHours} hours.`;
 
   return (

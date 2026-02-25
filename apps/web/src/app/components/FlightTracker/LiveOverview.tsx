@@ -88,9 +88,10 @@ export function FlightTrackerLiveOverview() {
   const cutoff = data.activeCutoffMinutes;
 
   const helpFlightsToday =
-    "Flights today = sessions first observed (in-region) during the current UTC day.";
+    "Flights today = sessions first observed during the current UTC day.";
   const helpActiveNow = `Active now = sessions seen within the last ${cutoff} minutes (UTC).`;
-  const helpInSwedenNow = `In Sweden now = active sessions currently inside Sweden (polygon) within the last ${cutoff} minutes.`;
+  const helpInSwedenNow =
+    "In Sweden now = active sessions whose latest known position is inside Sweden (polygon).";
   const helpUniqueAircraft = `Unique aircraft = distinct ICAO24 seen in the last ${data.windowHours} hours.`;
 
   const openFlightsToday = () => {
@@ -241,8 +242,8 @@ export function FlightTrackerLiveOverview() {
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0, px: 2 }}>
             <Typography variant="body2" sx={{ opacity: 0.85, lineHeight: 1.6 }}>
-              <b>Flights today</b>: sessions first observed inside the Sweden
-              tracking area during the current UTC day.
+              <b>Flights today</b>: sessions first observed during the current
+              UTC day.
               <br />
               <b>Active now</b>: seen within the last <b>{cutoff} minutes</b>{" "}
               (UTC).
