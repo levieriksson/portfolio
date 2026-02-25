@@ -31,8 +31,11 @@ namespace FlightTracker.Api.Controllers
             var windowStart = utcNow.AddHours(-windowHours);
             var activeCutoff = utcNow.AddMinutes(-activeCutoffMinutes);
 
-            var startOfToday = DateTime.SpecifyKind(utcNow.Date, DateTimeKind.Utc);
-            var startOfTomorrow = startOfToday.AddDays(1);
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Stockholm");
+            var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz);
+            var startOfTodayLocal = nowLocal.Date;
+            var startOfTodayUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal, tz);
+            var startOfTomorrowUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal.AddDays(1), tz);
 
             var baseQuery = _db.FlightSessions.AsNoTracking();
 
@@ -43,7 +46,7 @@ namespace FlightTracker.Api.Controllers
             var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastKnownInSweden);
 
             var flightsToday = await baseQuery.CountAsync(s =>
-                s.FirstSeenUtc >= startOfToday && s.FirstSeenUtc < startOfTomorrow);
+                s.LastSeenUtc >= startOfTodayUtc && s.LastSeenUtc < startOfTomorrowUtc);
 
             var sessionsStartedInWindow = await baseQuery.CountAsync(s => s.FirstSeenUtc >= windowStart);
 
@@ -86,8 +89,11 @@ namespace FlightTracker.Api.Controllers
             var utcNow = DateTime.UtcNow;
             var activeCutoff = utcNow.AddMinutes(-activeCutoffMinutes);
 
-            var startOfToday = DateTime.SpecifyKind(utcNow.Date, DateTimeKind.Utc);
-            var startOfTomorrow = startOfToday.AddDays(1);
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Stockholm");
+            var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz);
+            var startOfTodayLocal = nowLocal.Date;
+            var startOfTodayUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal, tz);
+            var startOfTomorrowUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal.AddDays(1), tz);
 
             var baseQuery = _db.FlightSessions.AsNoTracking();
 
@@ -97,7 +103,7 @@ namespace FlightTracker.Api.Controllers
             var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastKnownInSweden);
 
             var flightsToday = await baseQuery.CountAsync(s =>
-                s.FirstSeenUtc >= startOfToday && s.FirstSeenUtc < startOfTomorrow);
+                s.LastSeenUtc >= startOfTodayUtc && s.LastSeenUtc < startOfTomorrowUtc);
 
             return Ok(new
             {
