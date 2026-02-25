@@ -124,3 +124,17 @@ export type MapActiveResponse = {
   activeNowCutoffMinutes: number;
   items: MapActiveItem[];
 };
+
+export type ActivityBucketDto = {
+  startUtc: string;
+  sessionsSeen: number;
+  enteredSweden: number;
+};
+
+export type AnalyticsActivityResponseDto = {
+  range: "24h" | "7d";
+  bucket: "hour" | "day";
+  fromUtc: string;
+  toUtc: string;
+  buckets: ActivityBucketDto[];
+};

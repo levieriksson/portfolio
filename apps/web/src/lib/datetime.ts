@@ -99,3 +99,22 @@ export function formatLastSeenSmartEn(utcIso: string): string {
 export function formatStockholmDateTime(utcIso: string): string {
   return formatSvLocalDateTime(utcIso);
 }
+
+export function formatStockholmHour(utcIso: string): string {
+  const d = new Date(normalizeUtcIso(utcIso));
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
+export function formatStockholmMonthDay(utcIso: string): string {
+  const d = new Date(normalizeUtcIso(utcIso));
+  return new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
