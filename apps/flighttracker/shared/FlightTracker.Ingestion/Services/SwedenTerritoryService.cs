@@ -29,16 +29,18 @@ public sealed class SwedenTerritoryService
     public bool IsInside(double latitude, double longitude)
     {
         var inside = false;
-        var count = _polygon.Length;
+        var n = _polygon.Length;
 
-        for (int i = 0, j = count - 1; i < count; j = i++)
+        for (int i = 0, j = n - 1; i < n; j = i++)
         {
-            var pi = _polygon[i];
-            var pj = _polygon[j];
+            var xi = _polygon[i].Lon;
+            var yi = _polygon[i].Lat;
+            var xj = _polygon[j].Lon;
+            var yj = _polygon[j].Lat;
 
             var intersect =
-                ((pi.Lon > longitude) != (pj.Lon > longitude)) &&
-                (latitude < (pj.Lat - pi.Lat) * (longitude - pi.Lon) / (pj.Lon - pi.Lon + double.Epsilon) + pi.Lat);
+                ((yi > latitude) != (yj > latitude)) &&
+                (longitude < (xj - xi) * (latitude - yi) / ((yj - yi) + double.Epsilon) + xi);
 
             if (intersect)
                 inside = !inside;
