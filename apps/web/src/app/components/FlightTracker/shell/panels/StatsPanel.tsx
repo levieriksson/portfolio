@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -13,14 +13,19 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { apiGet } from "@/lib/api";
-import type { StatsOverview } from "@/lib/types";
-import { utcTodayString } from "@/lib/datetime";
+import type { AnalyticsActivityResponseDto, StatsOverview } from "@/lib/types";
+import {
+  formatStockholmHour,
+  formatStockholmMonthDay,
+  utcTodayString,
+} from "@/lib/datetime";
 import { StatCard } from "@/app/components/ui/StatCard";
 import type { FlightTrackerShellVariant } from "../FlightTrackerTabsShell";
 import {
   getPrefetchedStatsOverview,
   setPrefetchedStatsOverview,
 } from "@/app/components/FlightTracker/statsOverviewPrefetch";
+import { ActivityCharts } from "./charts/ActivityCharts";
 
 const RADIUS = 1;
 
@@ -46,12 +51,18 @@ type Props = {
 };
 
 export function StatsPanel({
+  variant,
   data,
   error,
   onDataChange,
   onErrorChange,
   onOpenBrowse,
 }: Props) {
+  const [activity24, setActivity24] =
+    useState<AnalyticsActivityResponseDto | null>(null);
+  const [activity7, setActivity7] =
+    useState<AnalyticsActivityResponseDto | null>(null);
+
   useEffect(() => {
     let mounted = true;
 
@@ -74,14 +85,39 @@ export function StatsPanel({
       }
     }
 
+    async function loadActivity() {
+      try {
+        const [a24, a7] = await Promise.all([
+          apiGet<AnalyticsActivityResponseDto>(
+            "/api/analytics/activity?range=24h",
+          ),
+          apiGet<AnalyticsActivityResponseDto>(
+            "/api/analytics/activity?range=7d",
+          ),
+        ]);
+        if (!mounted) return;
+        setActivity24(a24);
+        setActivity7(a7);
+      } catch {
+        if (!mounted) return;
+      }
+    }
+
     void load();
     const id = window.setInterval(load, 30_000);
+
+    let chartsId: number | undefined;
+    if (variant === "page") {
+      void loadActivity();
+      chartsId = window.setInterval(loadActivity, 5 * 60_000);
+    }
 
     return () => {
       mounted = false;
       window.clearInterval(id);
+      if (chartsId) window.clearInterval(chartsId);
     };
-  }, []);
+  }, [variant]);
 
   if (error) {
     return (
@@ -155,6 +191,24 @@ export function StatsPanel({
           borderRadius={RADIUS}
         />
       </Box>
+
+      {variant === "page" && activity24 && (
+        <ActivityCharts
+          title="Activity (last 24h)"
+          help="Sessions seen = count of sessions whose LastSeenUtc falls within each hour. Entered Sweden = count of sessions with EnteredSwedenUtc in that hour."
+          data={activity24}
+          tickLabel={formatStockholmHour}
+        />
+      )}
+
+      {variant === "page" && activity7 && (
+        <ActivityCharts
+          title="Activity (last 7d)"
+          help="Daily buckets in Sweden time. Sessions seen = sessions seen that day. Entered Sweden = sessions that entered Sweden that day."
+          data={activity7}
+          tickLabel={formatStockholmMonthDay}
+        />
+      )}
 
       <Accordion
         defaultExpanded

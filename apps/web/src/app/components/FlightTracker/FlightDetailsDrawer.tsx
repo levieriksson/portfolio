@@ -233,6 +233,23 @@ export function FlightDetailsDrawer({
               value={data.endUtc ? formatIsoLocalStockholm(data.endUtc) : "—"}
             />
 
+            <Line
+              label="Entered Sweden"
+              value={
+                data.enteredSwedenUtc
+                  ? formatIsoLocalStockholm(data.enteredSwedenUtc)
+                  : "—"
+              }
+            />
+            <Line
+              label="Exited Sweden"
+              value={
+                data.exitedSwedenUtc
+                  ? formatIsoLocalStockholm(data.exitedSwedenUtc)
+                  : "—"
+              }
+            />
+
             <Divider />
 
             <Line label="Samples" value={data.snapshotCount} />
