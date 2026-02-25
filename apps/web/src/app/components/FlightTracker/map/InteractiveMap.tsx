@@ -213,7 +213,6 @@ export default function InteractiveMap({
   trailEnabled = false,
   exactMode = false,
 }: Props) {
-  void exactMode;
   const MOBILE_SEARCH_HEADER_H = 44;
   const MOBILE_SEARCH_HEADER_PT = 1;
   const elRef = useRef<HTMLDivElement | null>(null);
@@ -303,26 +302,33 @@ export default function InteractiveMap({
     onLogState: logState,
   });
 
-  const fetchAndUpdate = useCallback(async (map: MLMap) => {
-    setFetchError(null);
+  const fetchAndUpdate = useCallback(
+    async (map: MLMap) => {
+      setFetchError(null);
 
-    try {
-      const json = await apiGet<MapActiveResponse>(
-        `/api/map/active?bbox=${encodeURIComponent(swedenBboxParam())}`,
-      );
+      try {
+        const json = await apiGet<MapActiveResponse>(
+          `/api/map/active?bbox=${encodeURIComponent(swedenBboxParam())}`,
+        );
 
-      setLastSnapshotUtc(json.lastSnapshotUtc);
+        setLastSnapshotUtc(json.lastSnapshotUtc);
 
-      const nextItems = json.items ?? [];
-      setItems(nextItems);
+        const rawItems = json.items ?? [];
+        const nextItems = exactMode
+          ? rawItems.filter((x) => x.inSweden === true)
+          : rawItems;
 
-      const fc = toAircraftFeatureCollection(nextItems);
-      const src = map.getSource("aircraft");
-      if (hasSetData(src)) src.setData(fc);
-    } catch (e: unknown) {
-      setFetchError(e instanceof Error ? e.message : String(e));
-    }
-  }, []);
+        setItems(nextItems);
+
+        const fc = toAircraftFeatureCollection(nextItems);
+        const src = map.getSource("aircraft");
+        if (hasSetData(src)) src.setData(fc);
+      } catch (e: unknown) {
+        setFetchError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [exactMode],
+  );
 
   const setSourceData = useCallback(
     (sourceId: string, fc: GeoJsonFeatureCollection) => {
@@ -379,7 +385,6 @@ export default function InteractiveMap({
 
     logState("on-ready");
     void fetchAndUpdate(map);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readyToken, fetchAndUpdate]);
 
   useEffect(() => {
@@ -401,11 +406,7 @@ export default function InteractiveMap({
     };
   }, [readyToken, mapRef]);
 
-  useEffect(() => {
-    if (selectedId == null) return;
-    if (items.some((x) => x.id === selectedId)) return;
-    setSelectedId(null);
-  }, [items, selectedId]);
+  const effectiveSelectedId = selectedItem?.id ?? null;
 
   useEffect(() => {
     if (readyToken <= 0) return;
@@ -519,13 +520,13 @@ export default function InteractiveMap({
   useEffect(() => {
     if (readyToken <= 0) return;
 
-    if (!trailEnabled || selectedId == null) {
+    if (!trailEnabled || effectiveSelectedId == null) {
       trailReqSeqRef.current += 1;
       clearTrailAll();
       return;
     }
 
-    const cached = trailCacheRef.current.get(selectedId);
+    const cached = trailCacheRef.current.get(effectiveSelectedId);
     if (cached) {
       setSourceData("trail", cached.line);
       setSourceData("trail-points", cached.pts);
@@ -537,16 +538,20 @@ export default function InteractiveMap({
     void (async () => {
       try {
         const res = await apiGet<unknown>(
-          `/api/flights/${selectedId}/trail?minutes=${TRAIL_MINUTES}`,
+          `/api/flights/${effectiveSelectedId}/trail?minutes=${TRAIL_MINUTES}`,
         );
 
         if (trailReqSeqRef.current !== seq) return;
 
         const points = pickPoints(res);
-        const fcLine = buildTrailLineFC(points, selectedId);
-        const fcPts = buildTrailPointsFC(points, selectedId);
+        const fcLine = buildTrailLineFC(points, effectiveSelectedId);
+        const fcPts = buildTrailPointsFC(points, effectiveSelectedId);
 
-        trailCacheRef.current.set(selectedId, { line: fcLine, pts: fcPts });
+        trailCacheRef.current.set(effectiveSelectedId, {
+          line: fcLine,
+          pts: fcPts,
+        });
+
         setSourceData("trail", fcLine);
         setSourceData("trail-points", fcPts);
       } catch {
@@ -554,7 +559,13 @@ export default function InteractiveMap({
         clearTrailAll();
       }
     })();
-  }, [readyToken, selectedId, trailEnabled, clearTrailAll, setSourceData]);
+  }, [
+    readyToken,
+    effectiveSelectedId,
+    trailEnabled,
+    clearTrailAll,
+    setSourceData,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -605,7 +616,7 @@ export default function InteractiveMap({
         {isMdUp && (
           <MapSearchPanel
             items={items}
-            selectedId={selectedId}
+            selectedId={effectiveSelectedId}
             onSelect={handleSelectFromPanel}
             width={320}
           />
@@ -710,7 +721,7 @@ export default function InteractiveMap({
               <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                 <MapSearchPanel
                   items={items}
-                  selectedId={selectedId}
+                  selectedId={effectiveSelectedId}
                   onSelect={handleSelectFromPanel}
                   width="100%"
                 />

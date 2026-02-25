@@ -26,13 +26,13 @@ export function FlightTrackerAnalyticsPage() {
   const project = getProject("flight-tracker");
   const [trailEnabled, setTrailEnabled] = useState(false);
 
-  const exactMode = false;
+  const [exactMode, setExactMode] = useState(false);
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
   const trailHelp =
     "Trail: shows the recent path of the selected aircraft (e.g. last ~60 minutes).";
   const exactHelp =
-    "Coming soon: polygon-based Sweden boundary (true Sweden-only).";
+    "Exact: filters the map to aircraft whose latest position is inside Sweden.";
 
   return (
     <Box sx={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
@@ -83,10 +83,8 @@ export function FlightTrackerAnalyticsPage() {
               />
 
               <FormControlLabel
-                disabled
                 sx={{
                   m: 0,
-                  opacity: 0.65,
                   "& .MuiFormControlLabel-label": {
                     display: "inline-flex",
                     alignItems: "center",
@@ -95,7 +93,12 @@ export function FlightTrackerAnalyticsPage() {
                     fontWeight: 700,
                   },
                 }}
-                control={<Switch checked={false} disabled />}
+                control={
+                  <Switch
+                    checked={exactMode}
+                    onChange={(e) => setExactMode(e.target.checked)}
+                  />
+                }
                 label={
                   <>
                     <span>Exact</span>
