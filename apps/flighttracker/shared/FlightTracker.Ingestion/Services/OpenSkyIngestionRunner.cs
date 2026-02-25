@@ -1,5 +1,7 @@
 using FlightTracker.Data;
 using FlightTracker.Data.Models;
+using FlightTracker.Ingestion.Helpers;
+using FlightTracker.Ingestion.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -7,18 +9,19 @@ using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using FlightTracker.Ingestion.Helpers;
 
 namespace FlightTracker.Ingestion.Services;
-
 
 public sealed class OpenSkyIngestionRunner
 {
     private readonly IServiceProvider _sp;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly OpenSkyAuthService _auth;
-    private readonly OpenSkyOptions _options;
+    private readonly OpenSkyOptions _openSky;
+    private readonly RegionBoundsOptions _region;
+    private readonly IngestionOptions _ingestion;
     private readonly ILogger<OpenSkyIngestionRunner> _logger;
+    private readonly SwedenTerritoryService _sweden;
 
     private DateTime _lastCleanupUtc = DateTime.MinValue;
 
@@ -26,14 +29,20 @@ public sealed class OpenSkyIngestionRunner
         IServiceProvider sp,
         IHttpClientFactory httpClientFactory,
         OpenSkyAuthService auth,
-        IOptions<OpenSkyOptions> options,
+        IOptions<OpenSkyOptions> openSky,
+        IOptions<RegionBoundsOptions> region,
+        IOptions<IngestionOptions> ingestion,
+        SwedenTerritoryService sweden,
         ILogger<OpenSkyIngestionRunner> logger)
     {
         _sp = sp;
         _httpClientFactory = httpClientFactory;
         _auth = auth;
-        _options = options.Value;
+        _openSky = openSky.Value;
+        _region = region.Value;
+        _ingestion = ingestion.Value;
         _logger = logger;
+        _sweden = sweden;
     }
 
     public async Task RunOnceAsync(CancellationToken ct)
@@ -45,9 +54,9 @@ public sealed class OpenSkyIngestionRunner
 
             var inv = CultureInfo.InvariantCulture;
 
-            var statesUrl = $"{_options.StatesUrl}" +
-                            $"?lamin={_options.LatMin.ToString(inv)}&lamax={_options.LatMax.ToString(inv)}" +
-                            $"&lomin={_options.LonMin.ToString(inv)}&lomax={_options.LonMax.ToString(inv)}";
+            var statesUrl = $"{_openSky.StatesUrl}" +
+                            $"?lamin={_region.LatMin.ToString(inv)}&lamax={_region.LatMax.ToString(inv)}" +
+                            $"&lomin={_region.LonMin.ToString(inv)}&lomax={_region.LonMax.ToString(inv)}";
 
             var token = await _auth.GetAccessTokenAsync(ct);
             var client = _httpClientFactory.CreateClient("opensky");
@@ -92,12 +101,37 @@ public sealed class OpenSkyIngestionRunner
                 var lon = stateArray[5].GetDoubleOrNull();
                 if (lat is null || lon is null) continue;
 
-                if (!InSwedenBbox(lat.Value, lon.Value)) continue;
+                if (!InRegionBbox(lat.Value, lon.Value)) continue;
 
                 var tsUnix = stateArray[4].ValueKind == JsonValueKind.Number ? stateArray[4].GetInt64() : 0;
                 if (tsUnix <= 0) continue;
 
                 var trueTrack = NormalizeTrack(stateArray[10].GetDoubleOrNull());
+
+                bool? onGround = null;
+                if (stateArray.GetArrayLength() > 8)
+                {
+                    onGround =
+                        stateArray[8].ValueKind == JsonValueKind.True ? true :
+                        stateArray[8].ValueKind == JsonValueKind.False ? false :
+                        (bool?)null;
+                }
+
+                var rawAlt = stateArray[7].GetDoubleOrNull();
+                var rawVel = stateArray[9].GetDoubleOrNull();
+
+                var maxAltM = _ingestion.MaxAltitudeM <= 0 ? 20000 : _ingestion.MaxAltitudeM;
+                var maxVelMps = _ingestion.MaxVelocityMps <= 0 ? 400 : _ingestion.MaxVelocityMps;
+
+                var (isValid, alt, vel, reason) = SnapshotSanity.ValidateAndFilter(
+                    latitude: lat.Value,
+                    longitude: lon.Value,
+                    altitude: rawAlt,
+                    velocity: rawVel,
+                    maxAltitudeM: maxAltM,
+                    maxVelocityMps: maxVelMps);
+
+                if (!isValid) continue;
 
                 snapshots.Add(new AircraftSnapshot
                 {
@@ -106,18 +140,20 @@ public sealed class OpenSkyIngestionRunner
                     OriginCountry = stateArray[2].GetString() ?? "",
                     Longitude = lon,
                     Latitude = lat,
-                    Altitude = stateArray[7].GetDoubleOrNull(),
-                    Velocity = stateArray[9].GetDoubleOrNull(),
+                    Altitude = alt,
+                    Velocity = vel,
                     TrueTrack = trueTrack,
                     TimestampUtc = DateTimeOffset.FromUnixTimeSeconds(tsUnix).UtcDateTime,
-                    InSweden = true
+                    InSweden = _sweden.IsInside(lat.Value, lon.Value),
+                    OnGround = onGround,
+                    IsValid = true,
+                    InvalidReason = reason,
                 });
             }
 
             if (snapshots.Count == 0)
             {
-                _logger.LogInformation("No snapshots in bbox this tick.");
-
+                _logger.LogInformation("No snapshots in region this tick.");
 
                 await CloseStaleSessionsAsync(db, nowUtc, ct);
                 await db.SaveChangesAsync(ct);
@@ -126,10 +162,8 @@ public sealed class OpenSkyIngestionRunner
                 return;
             }
 
-
             await SaveSnapshotsAndUpdateSessionsAsync(db, snapshots, nowUtc, ct);
             _logger.LogInformation("Saved {Count} snapshots.", snapshots.Count);
-
 
             await CloseStaleSessionsAsync(db, nowUtc, ct);
             await db.SaveChangesAsync(ct);
@@ -146,10 +180,9 @@ public sealed class OpenSkyIngestionRunner
         }
     }
 
-
-    private bool InSwedenBbox(double lat, double lon) =>
-        lat >= _options.LatMin && lat <= _options.LatMax &&
-        lon >= _options.LonMin && lon <= _options.LonMax;
+    private bool InRegionBbox(double lat, double lon) =>
+        lat >= _region.LatMin && lat <= _region.LatMax &&
+        lon >= _region.LonMin && lon <= _region.LonMax;
 
     private static double? NormalizeTrack(double? t)
     {
@@ -162,7 +195,7 @@ public sealed class OpenSkyIngestionRunner
 
     private async Task CloseStaleSessionsAsync(FlightDbContext db, DateTime nowUtc, CancellationToken ct)
     {
-        var gap = TimeSpan.FromSeconds(_options.SessionGapSeconds);
+        var gap = TimeSpan.FromSeconds(_ingestion.SessionGapSeconds);
         var cutoff = nowUtc - gap;
 
         var stale = await db.FlightSessions
@@ -186,7 +219,7 @@ public sealed class OpenSkyIngestionRunner
         DateTime nowUtc,
         CancellationToken ct)
     {
-        var gap = TimeSpan.FromSeconds(_options.SessionGapSeconds);
+        var gap = TimeSpan.FromSeconds(_ingestion.SessionGapSeconds);
 
         var icaos = snapshots.Select(s => s.Icao24).Distinct().ToList();
 
@@ -197,8 +230,8 @@ public sealed class OpenSkyIngestionRunner
         var byIcao = activeSessions.ToDictionary(s => s.Icao24);
 
         foreach (var group in snapshots
-            .GroupBy(s => s.Icao24)
-            .Select(g => new { Icao = g.Key, Items = g.OrderBy(x => x.TimestampUtc).ToList() }))
+                     .GroupBy(s => s.Icao24)
+                     .Select(g => new { Icao = g.Key, Items = g.OrderBy(x => x.TimestampUtc).ToList() }))
         {
             byIcao.TryGetValue(group.Icao, out var session);
 
@@ -230,26 +263,43 @@ public sealed class OpenSkyIngestionRunner
                 session.LastVelocity = snap.Velocity;
                 session.LastTrueTrack = snap.TrueTrack;
                 session.LastSnapshotUtc = snap.TimestampUtc;
-                session.LastInSweden = snap.InSweden;
 
+                var wasInSweden = session.LastKnownInSweden;
+
+                if (!wasInSweden && snap.InSweden)
+                {
+                    session.EnteredSwedenUtc ??= snap.TimestampUtc;
+                    session.ExitedSwedenUtc = null;
+                }
+
+                if (wasInSweden && !snap.InSweden)
+                {
+                    session.ExitedSwedenUtc = snap.TimestampUtc;
+                }
+
+                session.LastKnownInSweden = snap.InSweden;
                 session.SnapshotCount++;
+
+                if (snap.OnGround == false)
+                {
+                    session.AirborneTickCount++;
+                }
 
                 if (!string.IsNullOrWhiteSpace(snap.Callsign))
                     session.Callsign = snap.Callsign;
 
-                if (snap.Altitude is double alt)
+                if (snap.OnGround == false && snap.Altitude is double alt && alt > 0)
                 {
+                    session.AirborneSnapshotCount++;
+
                     session.MaxAltitude = session.MaxAltitude.HasValue
                         ? Math.Max(session.MaxAltitude.Value, alt)
                         : alt;
 
                     session.AvgAltitude = session.AvgAltitude.HasValue
-                        ? session.AvgAltitude + (alt - session.AvgAltitude.Value) / session.SnapshotCount
+                        ? session.AvgAltitude + (alt - session.AvgAltitude.Value) / session.AirborneSnapshotCount
                         : alt;
                 }
-
-                session.EnteredSwedenUtc ??= snap.TimestampUtc;
-                session.ExitedSwedenUtc = null;
             }
         }
 
@@ -266,19 +316,21 @@ public sealed class OpenSkyIngestionRunner
             LastSeenUtc = snap.TimestampUtc,
             IsActive = true,
             SnapshotCount = 0,
+            AirborneTickCount = 0,
             EnteredSwedenUtc = snap.InSweden ? snap.TimestampUtc : null,
+            ExitedSwedenUtc = null,
             LastLatitude = snap.Latitude,
             LastLongitude = snap.Longitude,
             LastAltitude = snap.Altitude,
             LastVelocity = snap.Velocity,
             LastTrueTrack = snap.TrueTrack,
             LastSnapshotUtc = snap.TimestampUtc,
-            LastInSweden = snap.InSweden
+            LastKnownInSweden = snap.InSweden
         };
 
     private async Task CleanupIfDueAsync(FlightDbContext db, DateTime nowUtc, CancellationToken ct)
     {
-        var hours = _options.CleanupEveryHours <= 0 ? 6 : _options.CleanupEveryHours;
+        var hours = _ingestion.CleanupEveryHours <= 0 ? 6 : _ingestion.CleanupEveryHours;
         var every = TimeSpan.FromHours(hours);
 
         if (_lastCleanupUtc != DateTime.MinValue && (nowUtc - _lastCleanupUtc) < every)
@@ -291,8 +343,8 @@ public sealed class OpenSkyIngestionRunner
 
     private async Task CleanupOldDataAsync(FlightDbContext db, DateTime nowUtc, CancellationToken ct)
     {
-        var snapCutoff = nowUtc.AddDays(-_options.SnapshotRetentionDays);
-        var sessionCutoff = nowUtc.AddDays(-_options.SessionRetentionDays);
+        var snapCutoff = nowUtc.AddDays(-_ingestion.SnapshotRetentionDays);
+        var sessionCutoff = nowUtc.AddDays(-_ingestion.SessionRetentionDays);
 
         var deletedSnaps = await db.AircraftSnapshots
             .Where(s => s.TimestampUtc < snapCutoff)

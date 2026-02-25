@@ -33,7 +33,7 @@ namespace FlightTracker.Api.Controllers
                     date,
                     "yyyy-MM-dd",
                     CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    DateTimeStyles.None,
                     out var parsed))
             {
                 return BadRequest("Invalid date. Use YYYY-MM-DD.");
@@ -43,8 +43,10 @@ namespace FlightTracker.Api.Controllers
             if (pageSize < 1) pageSize = 25;
             if (pageSize > 200) pageSize = 200;
 
-            var dayStart = DateTime.SpecifyKind(parsed.Date, DateTimeKind.Utc);
-            var dayEnd = dayStart.AddDays(1);
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Stockholm");
+            var dayStartLocal = DateTime.SpecifyKind(parsed.Date, DateTimeKind.Unspecified);
+            var dayStartUtc = TimeZoneInfo.ConvertTimeToUtc(dayStartLocal, tz);
+            var dayEndUtc = TimeZoneInfo.ConvertTimeToUtc(dayStartLocal.AddDays(1), tz);
 
             var utcNow = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
 
@@ -53,16 +55,12 @@ namespace FlightTracker.Api.Controllers
 
             var query = _db.FlightSessions
                 .AsNoTracking()
-                .Where(s =>
-                    s.EnteredSwedenUtc != null &&
-                    s.EnteredSwedenUtc >= dayStart &&
-                    s.EnteredSwedenUtc < dayEnd);
+                .Where(s => s.LastSeenUtc >= dayStartUtc && s.LastSeenUtc < dayEndUtc);
 
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var term = q.Trim();
                 var pattern = $"%{term}%";
-
 
                 query = query.Where(s =>
                     (s.Callsign != null && EF.Functions.ILike(s.Callsign, pattern)) ||

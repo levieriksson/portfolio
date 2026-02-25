@@ -19,79 +19,99 @@ namespace FlightTracker.Api.Controllers
         }
 
         [HttpGet("overview")]
-        public async Task<IActionResult> GetOverview()
+        public async Task<IActionResult> GetOverview([FromQuery] int windowHours = 24, [FromQuery] int activeCutoffMinutes = 25)
         {
+            if (windowHours < 1) windowHours = 1;
+            if (windowHours > 168) windowHours = 168;
+
+            if (activeCutoffMinutes < 5) activeCutoffMinutes = 5;
+            if (activeCutoffMinutes > 180) activeCutoffMinutes = 180;
+
             var utcNow = DateTime.UtcNow;
+            var windowStart = utcNow.AddHours(-windowHours);
+            var activeCutoff = utcNow.AddMinutes(-activeCutoffMinutes);
 
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Stockholm");
+            var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz);
+            var startOfTodayLocal = nowLocal.Date;
+            var startOfTodayUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal, tz);
+            var startOfTomorrowUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal.AddDays(1), tz);
 
-            var start = DateTime.SpecifyKind(utcNow.Date, DateTimeKind.Utc);
-            var end = start.AddDays(1);
+            var baseQuery = _db.FlightSessions.AsNoTracking();
 
-            var flightsToday = await _db.FlightSessions.CountAsync(s =>
-                s.EnteredSwedenUtc != null &&
-                s.EnteredSwedenUtc >= start &&
-                s.EnteredSwedenUtc < end);
+            var activeNowQuery = baseQuery.Where(s => s.IsActive && s.LastSeenUtc >= activeCutoff);
 
-            const int activeCutoffMinutes = 25;
-            var cutoff = utcNow.AddMinutes(-activeCutoffMinutes);
+            var activeNow = await activeNowQuery.CountAsync();
 
-            var activeNow = await _db.FlightSessions.CountAsync(s =>
-                s.IsActive &&
-                s.EnteredSwedenUtc != null &&
-                s.LastSeenUtc >= cutoff);
+            var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastKnownInSweden);
 
-            var lastSnapRaw = await _db.AircraftSnapshots
-                .OrderByDescending(s => s.TimestampUtc)
-                .Select(s => s.TimestampUtc)
+            var flightsToday = await baseQuery.CountAsync(s =>
+                s.LastSeenUtc >= startOfTodayUtc && s.LastSeenUtc < startOfTomorrowUtc);
+
+            var sessionsStartedInWindow = await baseQuery.CountAsync(s => s.FirstSeenUtc >= windowStart);
+
+            var uniqueAircraftInWindow = await baseQuery
+                .Where(s => s.LastSeenUtc >= windowStart)
+                .Select(s => s.Icao24)
+                .Distinct()
+                .CountAsync();
+
+            var lastSessionSnap = await baseQuery
+                .OrderByDescending(s => s.LastSnapshotUtc)
+                .Select(s => s.LastSnapshotUtc)
                 .FirstOrDefaultAsync();
 
             DateTime? lastSnapshotUtc =
-                lastSnapRaw == default
+                lastSessionSnap == null
                     ? null
-                    : DateTime.SpecifyKind(lastSnapRaw, DateTimeKind.Utc);
-
-            var snapCount = await _db.AircraftSnapshots.CountAsync();
-            var sessionCount = await _db.FlightSessions.CountAsync();
+                    : DateTime.SpecifyKind(lastSessionSnap.Value, DateTimeKind.Utc);
 
             return Ok(new
             {
-                activeNowCutoffMinutes = activeCutoffMinutes,
                 utcNow,
-                flightsTodayInSweden = flightsToday,
-                activeFlightsInSweden = activeNow,
+                windowHours,
+                activeCutoffMinutes,
                 lastSnapshotUtc,
-                snapshots = snapCount,
-                sessions = sessionCount
+                activeNow,
+                inSwedenNow,
+                flightsToday,
+                sessionsStartedInWindow,
+                uniqueAircraftInWindow
             });
         }
 
         [HttpGet("today")]
-        public async Task<IActionResult> GetToday()
+        public async Task<IActionResult> GetToday([FromQuery] int activeCutoffMinutes = 25)
         {
+            if (activeCutoffMinutes < 5) activeCutoffMinutes = 5;
+            if (activeCutoffMinutes > 180) activeCutoffMinutes = 180;
+
             var utcNow = DateTime.UtcNow;
+            var activeCutoff = utcNow.AddMinutes(-activeCutoffMinutes);
 
+            var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Stockholm");
+            var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz);
+            var startOfTodayLocal = nowLocal.Date;
+            var startOfTodayUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal, tz);
+            var startOfTomorrowUtc = TimeZoneInfo.ConvertTimeToUtc(startOfTodayLocal.AddDays(1), tz);
 
-            var start = DateTime.SpecifyKind(utcNow.Date, DateTimeKind.Utc);
-            var end = start.AddDays(1);
+            var baseQuery = _db.FlightSessions.AsNoTracking();
 
-            var flightsToday = await _db.FlightSessions.CountAsync(s =>
-                s.EnteredSwedenUtc != null &&
-                s.EnteredSwedenUtc >= start &&
-                s.EnteredSwedenUtc < end);
+            var activeNowQuery = baseQuery.Where(s => s.IsActive && s.LastSeenUtc >= activeCutoff);
 
-            const int activeCutoffMinutes = 25;
-            var cutoff = utcNow.AddMinutes(-activeCutoffMinutes);
+            var activeNow = await activeNowQuery.CountAsync();
+            var inSwedenNow = await activeNowQuery.CountAsync(s => s.LastKnownInSweden);
 
-            var activeNow = await _db.FlightSessions.CountAsync(s =>
-                s.IsActive &&
-                s.EnteredSwedenUtc != null &&
-                s.LastSeenUtc >= cutoff);
+            var flightsToday = await baseQuery.CountAsync(s =>
+                s.LastSeenUtc >= startOfTodayUtc && s.LastSeenUtc < startOfTomorrowUtc);
 
             return Ok(new
             {
-                activeNowCutoffMinutes = activeCutoffMinutes,
-                flightsTodayInSweden = flightsToday,
-                activeFlightsInSweden = activeNow
+                utcNow,
+                activeCutoffMinutes,
+                flightsToday,
+                activeNow,
+                inSwedenNow
             });
         }
     }

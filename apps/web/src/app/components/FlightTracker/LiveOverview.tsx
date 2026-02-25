@@ -85,17 +85,14 @@ export function FlightTrackerLiveOverview() {
     return <Box sx={{ opacity: 0.7 }}>Loading live stats…</Box>;
   }
 
-  const cutoff = data.activeNowCutoffMinutes ?? 25;
+  const cutoff = data.activeCutoffMinutes;
 
   const helpFlightsToday =
-    "Flights today = sessions first observed inside the Sweden tracking area during the current UTC day.";
-  const helpActiveNow =
-    `Active now = sessions seen within the last ${cutoff} minutes (UTC) inside the Sweden tracking area. ` +
-    "This is time-window based to avoid inflating counts from long session timeouts.";
-  const helpSnapshots =
-    "Snapshots = raw position samples ingested from OpenSky (multiple per flight).";
-  const helpSessions =
-    "Sessions = aggregated flight tracks built from snapshots. A session closes after a data gap.";
+    "Flights today = sessions seen since 00:00 in Sweden time (Europe/Stockholm).";
+  const helpActiveNow = `Active now = sessions seen within the last ${cutoff} minutes (UTC).`;
+  const helpInSwedenNow =
+    "In Sweden now = active sessions whose latest known position is inside Sweden (polygon).";
+  const helpUniqueAircraft = `Unique aircraft = distinct ICAO24 seen in the last ${data.windowHours} hours.`;
 
   const openFlightsToday = () => {
     setBrowserDate(utcTodayString());
@@ -130,29 +127,36 @@ export function FlightTrackerLiveOverview() {
         >
           <StatCard
             label={
-              <LabelWithHelp
-                label="Entered Sweden today"
-                help={helpFlightsToday}
-              />
+              <LabelWithHelp label="Flights today" help={helpFlightsToday} />
             }
-            value={data.flightsTodayInSweden}
+            value={data.flightsToday}
             onClick={openFlightsToday}
             borderRadius={RADIUS}
           />
+
           <StatCard
             label={<LabelWithHelp label="Active now" help={helpActiveNow} />}
-            value={data.activeFlightsInSweden}
+            value={data.activeNow}
             onClick={openActiveNow}
             borderRadius={RADIUS}
           />
+
           <StatCard
-            label={<LabelWithHelp label="Snapshots" help={helpSnapshots} />}
-            value={data.snapshots}
+            label={
+              <LabelWithHelp label="In Sweden now" help={helpInSwedenNow} />
+            }
+            value={data.inSwedenNow}
             borderRadius={RADIUS}
           />
+
           <StatCard
-            label={<LabelWithHelp label="Sessions" help={helpSessions} />}
-            value={data.sessions}
+            label={
+              <LabelWithHelp
+                label="Unique aircraft"
+                help={helpUniqueAircraft}
+              />
+            }
+            value={data.uniqueAircraftInWindow}
             borderRadius={RADIUS}
           />
         </Box>
@@ -238,8 +242,8 @@ export function FlightTrackerLiveOverview() {
           </AccordionSummary>
           <AccordionDetails sx={{ pt: 0, px: 2 }}>
             <Typography variant="body2" sx={{ opacity: 0.85, lineHeight: 1.6 }}>
-              <b>Flights today</b>: sessions first observed inside the Sweden
-              tracking area during the current UTC day.
+              <b>Flights today</b>: sessions seen since 00:00 in Sweden time
+              (Europe/Stockholm).
               <br />
               <b>Active now</b>: seen within the last <b>{cutoff} minutes</b>{" "}
               (UTC).

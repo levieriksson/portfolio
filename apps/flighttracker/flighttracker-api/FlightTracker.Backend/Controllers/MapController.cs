@@ -38,15 +38,16 @@ public class MapController : ControllerBase
             ));
         }
 
-        var lastSnapRaw = await _db.AircraftSnapshots
-            .OrderByDescending(s => s.TimestampUtc)
-            .Select(s => s.TimestampUtc)
+        var lastSnapRaw = await _db.FlightSessions
+            .AsNoTracking()
+            .OrderByDescending(s => s.LastSnapshotUtc)
+            .Select(s => s.LastSnapshotUtc)
             .FirstOrDefaultAsync();
 
         DateTime? lastSnapshotUtc =
-            lastSnapRaw == default
-                ? null
-                : DateTime.SpecifyKind(lastSnapRaw, DateTimeKind.Utc);
+            lastSnapRaw.HasValue
+            ? DateTime.SpecifyKind(lastSnapRaw.Value, DateTimeKind.Utc)
+            : null;
 
         var cutoff = DateTime.UtcNow.AddMinutes(-activeCutoffMinutes);
 
@@ -73,7 +74,7 @@ public class MapController : ControllerBase
                 Vel: s.LastVelocity,
                 Trk: s.LastTrueTrack,
                 LastSeenUtc: s.LastSeenUtc,
-                InSweden: s.LastInSweden,
+                InSweden: s.LastKnownInSweden,
                 Aircraft: a == null
                     ? null
                     : new AircraftInfoLite(

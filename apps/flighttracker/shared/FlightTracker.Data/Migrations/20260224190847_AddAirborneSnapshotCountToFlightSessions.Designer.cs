@@ -3,6 +3,7 @@ using System;
 using FlightTracker.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FlightTracker.Data.Migrations
 {
     [DbContext(typeof(FlightDbContext))]
-    partial class FlightDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260224190847_AddAirborneSnapshotCountToFlightSessions")]
+    partial class AddAirborneSnapshotCountToFlightSessions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -123,12 +126,6 @@ namespace FlightTracker.Data.Migrations
                     b.Property<bool>("InSweden")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("InvalidReason")
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsValid")
-                        .HasColumnType("boolean");
-
                     b.Property<double?>("Latitude")
                         .HasColumnType("double precision");
 
@@ -155,10 +152,6 @@ namespace FlightTracker.Data.Migrations
 
                     b.HasIndex("FlightSessionId");
 
-                    b.HasIndex("TimestampUtc");
-
-                    b.HasIndex("FlightSessionId", "TimestampUtc");
-
                     b.HasIndex("Icao24", "TimestampUtc");
 
                     b.ToTable("AircraftSnapshots");
@@ -173,9 +166,6 @@ namespace FlightTracker.Data.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AirborneSnapshotCount")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("AirborneTickCount")
                         .HasColumnType("integer");
 
                     b.Property<double?>("AvgAltitude")
@@ -209,7 +199,7 @@ namespace FlightTracker.Data.Migrations
                     b.Property<double?>("LastAltitude")
                         .HasColumnType("double precision");
 
-                    b.Property<bool>("LastKnownInSweden")
+                    b.Property<bool>("LastInSweden")
                         .HasColumnType("boolean");
 
                     b.Property<double?>("LastLatitude")
@@ -240,13 +230,7 @@ namespace FlightTracker.Data.Migrations
 
                     b.HasIndex("EnteredSwedenUtc");
 
-                    b.HasIndex("FirstSeenUtc");
-
-                    b.HasIndex("LastSnapshotUtc");
-
                     b.HasIndex("Icao24", "IsActive");
-
-                    b.HasIndex("IsActive", "LastSeenUtc");
 
                     b.ToTable("FlightSessions");
                 });
