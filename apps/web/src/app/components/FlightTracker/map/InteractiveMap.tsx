@@ -202,6 +202,37 @@ function buildTrailPointsFC(
 
   return { type: "FeatureCollection", features: feats };
 }
+//custom chevron icon with less angle than from mui icons
+function ShallowChevron({
+  dir,
+  width = 40,
+  height = 18,
+}: {
+  dir: "up" | "down";
+  width?: number;
+  height?: number;
+}) {
+  return (
+    <Box
+      component="svg"
+      width={width}
+      height={height}
+      viewBox="0 0 56 18"
+      aria-hidden="true"
+      focusable="false"
+      sx={{ color: "text.primary", opacity: 0.95 }}
+    >
+      <path
+        d={dir === "up" ? "M6 14 L28 4 L50 14" : "M6 4 L28 14 L50 4"}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Box>
+  );
+}
 
 export default function InteractiveMap({
   height = "80vh",
@@ -214,7 +245,7 @@ export default function InteractiveMap({
   exactMode = false,
 }: Props) {
   const MOBILE_SEARCH_HEADER_H = 44;
-  const MOBILE_SEARCH_HEADER_PT = 1;
+  const MOBILE_SEARCH_HEADER_PT = 0.5;
   const elRef = useRef<HTMLDivElement | null>(null);
   const [lastSnapshotUtc, setLastSnapshotUtc] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -653,17 +684,10 @@ export default function InteractiveMap({
                   alignItems: "center",
                   justifyContent: "flex-start",
                   pt: MOBILE_SEARCH_HEADER_PT,
-                  gap: 1,
+                  gap: MOBILE_SEARCH_HEADER_PT,
                 }}
               >
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 4,
-                    borderRadius: 999,
-                    bgcolor: "text.disabled",
-                  }}
-                />
+                <ShallowChevron dir={mobileSearchOpen ? "down" : "up"} />
                 <Typography
                   sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1 }}
                 >
@@ -698,19 +722,12 @@ export default function InteractiveMap({
                   alignItems: "center",
                   justifyContent: "flex-start",
                   pt: MOBILE_SEARCH_HEADER_PT,
-                  gap: 1,
+                  gap: MOBILE_SEARCH_HEADER_PT,
                   borderBottom: "1px solid",
                   borderColor: "divider",
                 }}
               >
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 4,
-                    borderRadius: 999,
-                    bgcolor: "text.disabled",
-                  }}
-                />
+                <ShallowChevron dir={mobileSearchOpen ? "down" : "up"} />
                 <Typography
                   sx={{ fontSize: 13, fontWeight: 800, lineHeight: 1 }}
                 >
