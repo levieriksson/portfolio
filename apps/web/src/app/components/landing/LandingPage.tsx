@@ -10,10 +10,12 @@ import AboutSection from "./sections/AboutSection";
 import ContactSection from "./sections/ContactSection";
 import { useEffect } from "react";
 import { prefetchStatsOverview } from "../FlightTracker/statsOverviewPrefetch";
+import { prefetchDefaultFlightsPage } from "../FlightTracker/flightsBrowserPrefetch";
 
 export default function LandingPage() {
   useEffect(() => {
     void prefetchStatsOverview();
+    void prefetchDefaultFlightsPage();
   }, []);
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>

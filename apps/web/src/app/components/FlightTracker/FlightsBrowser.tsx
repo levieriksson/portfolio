@@ -26,6 +26,8 @@ import { alpha } from "@mui/material/styles";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiGet } from "@/lib/api";
 import type { FlightsPage, FlightsPageItem } from "@/lib/types";
+import { utcTodayString } from "@/lib/datetime";
+import { getPrefetchedDefaultFlightsPage } from "./flightsBrowserPrefetch";
 
 type FlightsBrowserProps = {
   initialDate: string;
@@ -102,7 +104,15 @@ export function FlightsBrowser({
   const [search, setSearch] = useState(initialSearch);
   const [page, setPage] = useState(1);
 
-  const [data, setData] = useState<FlightsPage | null>(null);
+  const [data, setData] = useState<FlightsPage | null>(() => {
+    const isDefaultQuery =
+      initialDate === utcTodayString() &&
+      initialActiveOnly === false &&
+      initialSearch.trim() === "" &&
+      pageSize === 15;
+
+    return isDefaultQuery ? getPrefetchedDefaultFlightsPage() : null;
+  });
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
