@@ -31,6 +31,52 @@ public sealed class AnalyticsController : ControllerBase
             : Ok(await BuildDailyAsync(utcNow));
     }
 
+
+    [HttpGet("top-airlines")]
+    public async Task<IActionResult> GetTopAirlines([FromQuery] string range = "24h")
+    {
+        range = (range ?? "24h").Trim().ToLowerInvariant();
+
+        if (range != "24h" && range != "7d")
+            return BadRequest("range must be 24h or 7d");
+
+        var utcNow = DateTime.UtcNow;
+
+        return Ok(await BuildTopAirlinesAsync(range, utcNow));
+    }
+
+    private async Task<TopAirlinesResponseDto> BuildTopAirlinesAsync(string range, DateTime utcNow)
+    {
+        var fromUtc = range == "24h"
+            ? utcNow.AddHours(-24)
+            : utcNow.AddDays(-7);
+
+        var items = await _db.FlightSessions
+            .AsNoTracking()
+            .Where(s =>
+                s.LastSeenUtc >= fromUtc &&
+                s.Callsign != null &&
+                s.Callsign.Trim() != "" &&
+                s.Callsign.Trim().Length >= 3)
+            .Select(s => s.Callsign!.Trim().ToUpper())
+            .Select(callsign => new
+            {
+                AirlineCode = callsign.Substring(0, 3)
+            })
+            .GroupBy(x => x.AirlineCode)
+            .Select(g => new TopAirlineItemDto(
+                g.Key,
+                g.Count()))
+            .OrderByDescending(x => x.SessionCount)
+            .ThenBy(x => x.AirlineCode)
+            .Take(5)
+            .ToListAsync();
+
+        return new TopAirlinesResponseDto(
+            range,
+            items);
+    }
+
     private async Task<AnalyticsActivityResponseDto> BuildHourlyAsync(DateTime utcNow)
     {
 
