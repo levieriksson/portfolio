@@ -31,6 +31,42 @@ public sealed class AnalyticsController : ControllerBase
             : Ok(await BuildDailyAsync(utcNow));
     }
 
+    [HttpGet("activity-change")]
+    public async Task<IActionResult> GetActivityChange()
+    {
+        var utcNow = DateTime.UtcNow;
+
+        return Ok(await BuildActivityChangeAsync(utcNow));
+    }
+
+    private async Task<AnalyticsChangeResponseDto> BuildActivityChangeAsync(DateTime utcNow)
+    {
+        var currentFromUtc = utcNow.AddHours(-24);
+        var previousFromUtc = utcNow.AddHours(-48);
+        var previousToUtc = currentFromUtc;
+
+        var currentSessions = await _db.FlightSessions
+            .AsNoTracking()
+            .CountAsync(s => s.LastSeenUtc >= currentFromUtc);
+
+        var previousSessions = await _db.FlightSessions
+            .AsNoTracking()
+            .CountAsync(s =>
+                s.LastSeenUtc >= previousFromUtc &&
+                s.LastSeenUtc < previousToUtc);
+
+        decimal? percentChange = previousSessions == 0
+            ? null
+            : Math.Round(
+                ((decimal)(currentSessions - previousSessions) / previousSessions) * 100m,
+                1);
+
+        return new AnalyticsChangeResponseDto(
+            currentSessions,
+            previousSessions,
+            percentChange);
+    }
+
 
     [HttpGet("top-airlines")]
     public async Task<IActionResult> GetTopAirlines([FromQuery] string range = "24h")
