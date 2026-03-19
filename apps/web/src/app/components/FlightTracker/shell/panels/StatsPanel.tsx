@@ -13,7 +13,11 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 import { apiGet } from "@/lib/api";
-import type { AnalyticsActivityResponseDto, StatsOverview } from "@/lib/types";
+import type {
+  AnalyticsActivityResponseDto,
+  StatsOverview,
+  TopAirlinesResponseDto,
+} from "@/lib/types";
 import {
   formatStockholmHour,
   formatStockholmMonthDay,
@@ -62,6 +66,8 @@ export function StatsPanel({
     useState<AnalyticsActivityResponseDto | null>(null);
   const [activity7, setActivity7] =
     useState<AnalyticsActivityResponseDto | null>(null);
+  const [topAirlines24, setTopAirlines24] =
+    useState<TopAirlinesResponseDto | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -87,17 +93,21 @@ export function StatsPanel({
 
     async function loadActivity() {
       try {
-        const [a24, a7] = await Promise.all([
+        const [a24, a7, top24] = await Promise.all([
           apiGet<AnalyticsActivityResponseDto>(
             "/api/analytics/activity?range=24h",
           ),
           apiGet<AnalyticsActivityResponseDto>(
             "/api/analytics/activity?range=7d",
           ),
+          apiGet<TopAirlinesResponseDto>(
+            "/api/analytics/top-airlines?range=24h",
+          ),
         ]);
         if (!mounted) return;
         setActivity24(a24);
         setActivity7(a7);
+        setTopAirlines24(top24);
       } catch {
         if (!mounted) return;
       }
@@ -191,7 +201,47 @@ export function StatsPanel({
           borderRadius={RADIUS}
         />
       </Box>
+      {variant === "page" && topAirlines24 && (
+        <Box
+          sx={{
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: RADIUS,
+            p: 2,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+          }}
+        >
+          <Typography variant="h6">Top airlines (24h)</Typography>
 
+          {topAirlines24.items.map((item, index) => (
+            <Box
+              key={item.airlineCode}
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 2,
+              }}
+            >
+              <Typography variant="body2">
+                {index === 0
+                  ? "🥇"
+                  : index === 1
+                    ? "🥈"
+                    : index === 2
+                      ? "🥉"
+                      : `${index + 1}.`}{" "}
+                {item.airlineCode}
+              </Typography>
+
+              <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                {item.sessionCount}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
       {variant === "page" && activity24 && (
         <ActivityCharts
           title="Activity (last 24h)"
