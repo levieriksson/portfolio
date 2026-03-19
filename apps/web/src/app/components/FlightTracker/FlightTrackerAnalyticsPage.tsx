@@ -26,13 +26,11 @@ export function FlightTrackerAnalyticsPage() {
   const project = getProject("flight-tracker");
   const [trailEnabled, setTrailEnabled] = useState(false);
 
-  const [exactMode, setExactMode] = useState(false);
+  const [swedenOnly, setSwedenOnly] = useState(false);
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
-  const trailHelp =
-    "Trail: shows the recent path of the selected aircraft (e.g. last ~60 minutes).";
-  const exactHelp =
-    "Exact: filters the map to aircraft whose latest position is inside Sweden.";
+  const trailHelp = "Displays the flight path of the selected aircraft";
+  const swedenOnlyHelp = "Displays only aircraft currently in Sweden";
 
   return (
     <Box sx={{ height: "100dvh", display: "flex", flexDirection: "column" }}>
@@ -95,14 +93,14 @@ export function FlightTrackerAnalyticsPage() {
                 }}
                 control={
                   <Switch
-                    checked={exactMode}
-                    onChange={(e) => setExactMode(e.target.checked)}
+                    checked={swedenOnly}
+                    onChange={(e) => setSwedenOnly(e.target.checked)}
                   />
                 }
                 label={
                   <>
-                    <span>Exact</span>
-                    <Tooltip title={exactHelp} arrow>
+                    <span>Sweden only</span>
+                    <Tooltip title={swedenOnlyHelp} arrow>
                       <InfoOutlinedIcon
                         sx={{ fontSize: 18, opacity: 0.7, cursor: "help" }}
                       />
@@ -160,7 +158,7 @@ export function FlightTrackerAnalyticsPage() {
           variant="page"
           defaultTab="map"
           trailEnabled={trailEnabled}
-          exactMode={exactMode}
+          swedenOnly={swedenOnly}
         />
       </Box>
     </Box>

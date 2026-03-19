@@ -20,14 +20,14 @@ type Props = {
   variant: FlightTrackerShellVariant;
   defaultTab?: TabKey;
   trailEnabled?: boolean;
-  exactMode?: boolean;
+  swedenOnly?: boolean;
 };
 
 export function FlightTrackerTabsShell({
   variant,
   defaultTab,
   trailEnabled = false,
-  exactMode = false,
+  swedenOnly = false,
 }: Props) {
   const theme = useTheme();
   const isMdUp = useMediaQuery(theme.breakpoints.up("md"));
@@ -156,7 +156,7 @@ export function FlightTrackerTabsShell({
           <MapPanel
             variant={variant}
             trailEnabled={trailEnabled}
-            exactMode={exactMode}
+            swedenOnly={swedenOnly}
             fitToken={fitToken}
           />
         )}

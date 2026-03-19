@@ -32,7 +32,7 @@ type Props = {
   debug?: boolean;
   constraintsMode?: "modal" | "page";
   trailEnabled?: boolean;
-  exactMode?: boolean;
+  swedenOnly?: boolean;
 };
 
 const FIT_VIEW = {
@@ -242,7 +242,7 @@ export default function InteractiveMap({
   debug = false,
   constraintsMode = "modal",
   trailEnabled = false,
-  exactMode = false,
+  swedenOnly = false,
 }: Props) {
   const MOBILE_SEARCH_HEADER_H = 44;
   const MOBILE_SEARCH_HEADER_PT = 0.5;
@@ -345,7 +345,7 @@ export default function InteractiveMap({
         setLastSnapshotUtc(json.lastSnapshotUtc);
 
         const rawItems = json.items ?? [];
-        const nextItems = exactMode
+        const nextItems = swedenOnly
           ? rawItems.filter((x) => x.inSweden === true)
           : rawItems;
 
@@ -358,7 +358,7 @@ export default function InteractiveMap({
         setFetchError(e instanceof Error ? e.message : String(e));
       }
     },
-    [exactMode],
+    [swedenOnly],
   );
 
   const setSourceData = useCallback(
