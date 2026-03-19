@@ -51,26 +51,25 @@ public sealed class AnalyticsController : ControllerBase
             ? utcNow.AddHours(-24)
             : utcNow.AddDays(-7);
 
-        var items = await _db.FlightSessions
+        var callsigns = await _db.FlightSessions
             .AsNoTracking()
-            .Where(s =>
-                s.LastSeenUtc >= fromUtc &&
-                s.Callsign != null &&
-                s.Callsign.Trim() != "" &&
-                s.Callsign.Trim().Length >= 3)
-            .Select(s => s.Callsign!.Trim().ToUpper())
-            .Select(callsign => new
-            {
-                AirlineCode = callsign.Substring(0, 3)
-            })
-            .GroupBy(x => x.AirlineCode)
+            .Where(s => s.LastSeenUtc >= fromUtc && s.Callsign != null)
+            .Select(s => s.Callsign!)
+            .ToListAsync();
+
+        var items = callsigns
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim().ToUpperInvariant())
+            .Where(c => c.Length >= 3)
+            .Select(c => c.Substring(0, 3))
+            .GroupBy(code => code)
             .Select(g => new TopAirlineItemDto(
                 g.Key,
                 g.Count()))
             .OrderByDescending(x => x.SessionCount)
             .ThenBy(x => x.AirlineCode)
             .Take(5)
-            .ToListAsync();
+            .ToList();
 
         return new TopAirlinesResponseDto(
             range,
