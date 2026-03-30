@@ -80,34 +80,53 @@ export function ActivityCharts({ title, help, data, tickLabel }: Props) {
               minTickGap={18}
             />
             <YAxis width={44} />
+
             <RechartsTooltip
+              itemSorter={(item) => (item.dataKey === "sessionsSeen" ? 0 : 1)}
               labelFormatter={(v) =>
                 typeof v === "string" ? tickLabel(v) : String(v ?? "")
               }
+              formatter={(value, name) => {
+                const color =
+                  name === "Sessions seen"
+                    ? t.palette.primary.main
+                    : t.palette.success.main;
+
+                return [
+                  <span key={String(name)} style={{ color, fontWeight: 600 }}>
+                    {Number(value).toLocaleString()}
+                  </span>,
+                  String(name),
+                ];
+              }}
               contentStyle={{
                 background: t.palette.background.paper,
                 border: `1px solid ${t.palette.divider}`,
                 borderRadius: 8,
               }}
               labelStyle={{
-                color: t.palette.text.secondary,
-                marginBottom: 6,
+                opacity: 1,
+                color: t.palette.text.primary,
+                marginBottom: 8,
               }}
               itemStyle={{
                 color: t.palette.text.primary,
               }}
             />
+
             <Line
               type="monotone"
               dataKey="sessionsSeen"
               dot={false}
               name="Sessions seen"
+              stroke={t.palette.primary.main}
             />
             <Line
               type="monotone"
               dataKey="enteredSweden"
               dot={false}
               name="Entered Sweden"
+              stroke={t.palette.success.main}
             />
           </LineChart>
         </ResponsiveContainer>
