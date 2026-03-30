@@ -33,6 +33,8 @@ import {
 import { ActivityCharts } from "./charts/ActivityCharts";
 import { TopAirlinesCard } from "./stats/TopAirlinesCard";
 import { ActivityChangeCard } from "./stats/ActivityChangeCard";
+import { PeakHoursCard } from "./stats/PeakHoursCard";
+import { BusiestDayCard } from "./stats/BusiestDayCard";
 
 const RADIUS = 1;
 
@@ -154,6 +156,39 @@ export function StatsPanel({
     "In Sweden now = active sessions whose latest known position is inside Sweden (polygon).";
   const helpUniqueAircraft = `Unique aircraft = distinct ICAO24 seen in the last ${data.windowHours} hours.`;
 
+  const peakHourBucket =
+    activity24?.buckets.reduce((max, curr) =>
+      curr.sessionsSeen > max.sessionsSeen ? curr : max,
+    ) ?? null;
+
+  const peakHourLabel = peakHourBucket
+    ? formatStockholmHour(peakHourBucket.startUtc)
+    : null;
+
+  const peakHourSessions = peakHourBucket?.sessionsSeen ?? null;
+
+  const busiestDayBucket =
+    activity7?.buckets.reduce((max, curr) =>
+      curr.sessionsSeen > max.sessionsSeen ? curr : max,
+    ) ?? null;
+
+  const busiestWeekday = busiestDayBucket
+    ? new Date(busiestDayBucket.startUtc).toLocaleDateString("en-US", {
+        weekday: "long",
+        timeZone: "Europe/Stockholm",
+      })
+    : null;
+
+  const busiestMonthDay = busiestDayBucket
+    ? new Date(busiestDayBucket.startUtc).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        timeZone: "Europe/Stockholm",
+      })
+    : null;
+
+  const busiestSessions = busiestDayBucket?.sessionsSeen ?? null;
+
   return (
     <Box
       sx={{
@@ -207,21 +242,35 @@ export function StatsPanel({
           borderRadius={RADIUS}
         />
       </Box>
-      {variant === "page" && (topAirlines24 || change) && (
+      {variant === "page" && (
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "420px 320px" },
+            gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" },
             gap: 2,
             alignItems: "stretch",
-            alignSelf: "flex-start",
           }}
         >
           {topAirlines24 && (
             <TopAirlinesCard data={topAirlines24} borderRadius={RADIUS} />
           )}
 
+          {peakHourLabel && peakHourSessions !== null && (
+            <PeakHoursCard
+              borderRadius={RADIUS}
+              hour={peakHourLabel}
+              sessions={peakHourSessions}
+            />
+          )}
           {change && <ActivityChangeCard data={change} borderRadius={RADIUS} />}
+          {busiestWeekday && busiestMonthDay && busiestSessions !== null && (
+            <BusiestDayCard
+              borderRadius={RADIUS}
+              weekday={busiestWeekday}
+              monthDay={busiestMonthDay}
+              sessions={busiestSessions}
+            />
+          )}
         </Box>
       )}
       {variant === "page" && activity24 && (

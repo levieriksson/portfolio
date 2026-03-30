@@ -22,7 +22,6 @@ export function TopAirlinesCard({ data, borderRadius }: Props) {
         display: "flex",
         flexDirection: "column",
         width: "100%",
-        maxWidth: 420,
         minHeight: 220,
       }}
     >
