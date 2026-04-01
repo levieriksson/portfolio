@@ -15,6 +15,7 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import { apiGet } from "@/lib/api";
 import type {
   AnalyticsActivityResponseDto,
+  AnalyticsChangeResponseDto,
   StatsOverview,
   TopAirlinesResponseDto,
 } from "@/lib/types";
@@ -30,6 +31,10 @@ import {
   setPrefetchedStatsOverview,
 } from "@/app/components/FlightTracker/statsOverviewPrefetch";
 import { ActivityCharts } from "./charts/ActivityCharts";
+import { TopAirlinesCard } from "./stats/TopAirlinesCard";
+import { ActivityChangeCard } from "./stats/ActivityChangeCard";
+import { PeakHoursCard } from "./stats/PeakHoursCard";
+import { BusiestDayCard } from "./stats/BusiestDayCard";
 
 const RADIUS = 1;
 
@@ -68,6 +73,7 @@ export function StatsPanel({
     useState<AnalyticsActivityResponseDto | null>(null);
   const [topAirlines24, setTopAirlines24] =
     useState<TopAirlinesResponseDto | null>(null);
+  const [change, setChange] = useState<AnalyticsChangeResponseDto | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -91,9 +97,9 @@ export function StatsPanel({
       }
     }
 
-    async function loadActivity() {
+    async function loadAnalytics() {
       try {
-        const [a24, a7, top24] = await Promise.all([
+        const [a24, a7, top24, changeRes] = await Promise.all([
           apiGet<AnalyticsActivityResponseDto>(
             "/api/analytics/activity?range=24h",
           ),
@@ -103,11 +109,13 @@ export function StatsPanel({
           apiGet<TopAirlinesResponseDto>(
             "/api/analytics/top-airlines?range=24h",
           ),
+          apiGet<AnalyticsChangeResponseDto>("/api/analytics/activity-change"),
         ]);
         if (!mounted) return;
         setActivity24(a24);
         setActivity7(a7);
         setTopAirlines24(top24);
+        setChange(changeRes);
       } catch {
         if (!mounted) return;
       }
@@ -118,8 +126,8 @@ export function StatsPanel({
 
     let chartsId: number | undefined;
     if (variant === "page") {
-      void loadActivity();
-      chartsId = window.setInterval(loadActivity, 5 * 60_000);
+      void loadAnalytics();
+      chartsId = window.setInterval(loadAnalytics, 5 * 60_000);
     }
 
     return () => {
@@ -147,6 +155,39 @@ export function StatsPanel({
   const helpInSwedenNow =
     "In Sweden now = active sessions whose latest known position is inside Sweden (polygon).";
   const helpUniqueAircraft = `Unique aircraft = distinct ICAO24 seen in the last ${data.windowHours} hours.`;
+
+  const peakHourBucket =
+    activity24?.buckets.reduce((max, curr) =>
+      curr.sessionsSeen > max.sessionsSeen ? curr : max,
+    ) ?? null;
+
+  const peakHourLabel = peakHourBucket
+    ? formatStockholmHour(peakHourBucket.startUtc)
+    : null;
+
+  const peakHourSessions = peakHourBucket?.sessionsSeen ?? null;
+
+  const busiestDayBucket =
+    activity7?.buckets.reduce((max, curr) =>
+      curr.sessionsSeen > max.sessionsSeen ? curr : max,
+    ) ?? null;
+
+  const busiestWeekday = busiestDayBucket
+    ? new Date(busiestDayBucket.startUtc).toLocaleDateString("en-US", {
+        weekday: "long",
+        timeZone: "Europe/Stockholm",
+      })
+    : null;
+
+  const busiestMonthDay = busiestDayBucket
+    ? new Date(busiestDayBucket.startUtc).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        timeZone: "Europe/Stockholm",
+      })
+    : null;
+
+  const busiestSessions = busiestDayBucket?.sessionsSeen ?? null;
 
   return (
     <Box
@@ -201,45 +242,35 @@ export function StatsPanel({
           borderRadius={RADIUS}
         />
       </Box>
-      {variant === "page" && topAirlines24 && (
+      {variant === "page" && (
         <Box
           sx={{
-            border: "1px solid",
-            borderColor: "divider",
-            borderRadius: RADIUS,
-            p: 2,
-            display: "flex",
-            flexDirection: "column",
-            gap: 1,
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" },
+            gap: 2,
+            alignItems: "stretch",
           }}
         >
-          <Typography variant="h6">Top airlines (24h)</Typography>
+          {topAirlines24 && (
+            <TopAirlinesCard data={topAirlines24} borderRadius={RADIUS} />
+          )}
 
-          {topAirlines24.items.map((item, index) => (
-            <Box
-              key={item.airlineCode}
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 2,
-              }}
-            >
-              <Typography variant="body2">
-                {index === 0
-                  ? "🥇"
-                  : index === 1
-                    ? "🥈"
-                    : index === 2
-                      ? "🥉"
-                      : `${index + 1}.`}{" "}
-                {item.airlineCode}
-              </Typography>
-
-              <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                {item.sessionCount}
-              </Typography>
-            </Box>
-          ))}
+          {peakHourLabel && peakHourSessions !== null && (
+            <PeakHoursCard
+              borderRadius={RADIUS}
+              hour={peakHourLabel}
+              sessions={peakHourSessions}
+            />
+          )}
+          {change && <ActivityChangeCard data={change} borderRadius={RADIUS} />}
+          {busiestWeekday && busiestMonthDay && busiestSessions !== null && (
+            <BusiestDayCard
+              borderRadius={RADIUS}
+              weekday={busiestWeekday}
+              monthDay={busiestMonthDay}
+              sessions={busiestSessions}
+            />
+          )}
         </Box>
       )}
       {variant === "page" && activity24 && (

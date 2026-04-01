@@ -148,3 +148,9 @@ export type TopAirlinesResponseDto = {
   range: "24h" | "7d";
   items: TopAirlineItemDto[];
 };
+
+export type AnalyticsChangeResponseDto = {
+  currentSessions: number;
+  previousSessions: number;
+  percentChange: number | null;
+};
