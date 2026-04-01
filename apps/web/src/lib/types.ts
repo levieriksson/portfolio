@@ -138,3 +138,19 @@ export type AnalyticsActivityResponseDto = {
   toUtc: string;
   buckets: ActivityBucketDto[];
 };
+
+export type TopAirlineItemDto = {
+  airlineCode: string;
+  sessionCount: number;
+};
+
+export type TopAirlinesResponseDto = {
+  range: "24h" | "7d";
+  items: TopAirlineItemDto[];
+};
+
+export type AnalyticsChangeResponseDto = {
+  currentSessions: number;
+  previousSessions: number;
+  percentChange: number | null;
+};

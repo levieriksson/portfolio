@@ -31,6 +31,87 @@ public sealed class AnalyticsController : ControllerBase
             : Ok(await BuildDailyAsync(utcNow));
     }
 
+    [HttpGet("activity-change")]
+    public async Task<IActionResult> GetActivityChange()
+    {
+        var utcNow = DateTime.UtcNow;
+
+        return Ok(await BuildActivityChangeAsync(utcNow));
+    }
+
+    private async Task<AnalyticsChangeResponseDto> BuildActivityChangeAsync(DateTime utcNow)
+    {
+        var currentFromUtc = utcNow.AddHours(-24);
+        var previousFromUtc = utcNow.AddHours(-48);
+        var previousToUtc = currentFromUtc;
+
+        var currentSessions = await _db.FlightSessions
+            .AsNoTracking()
+            .CountAsync(s => s.LastSeenUtc >= currentFromUtc);
+
+        var previousSessions = await _db.FlightSessions
+            .AsNoTracking()
+            .CountAsync(s =>
+                s.LastSeenUtc >= previousFromUtc &&
+                s.LastSeenUtc < previousToUtc);
+
+        decimal? percentChange = previousSessions == 0
+            ? null
+            : Math.Round(
+                ((decimal)(currentSessions - previousSessions) / previousSessions) * 100m,
+                1);
+
+        return new AnalyticsChangeResponseDto(
+            currentSessions,
+            previousSessions,
+            percentChange);
+    }
+
+
+    [HttpGet("top-airlines")]
+    public async Task<IActionResult> GetTopAirlines([FromQuery] string range = "24h")
+    {
+        range = (range ?? "24h").Trim().ToLowerInvariant();
+
+        if (range != "24h" && range != "7d")
+            return BadRequest("range must be 24h or 7d");
+
+        var utcNow = DateTime.UtcNow;
+
+        return Ok(await BuildTopAirlinesAsync(range, utcNow));
+    }
+
+    private async Task<TopAirlinesResponseDto> BuildTopAirlinesAsync(string range, DateTime utcNow)
+    {
+        var fromUtc = range == "24h"
+            ? utcNow.AddHours(-24)
+            : utcNow.AddDays(-7);
+
+        var callsigns = await _db.FlightSessions
+            .AsNoTracking()
+            .Where(s => s.LastSeenUtc >= fromUtc && s.Callsign != null)
+            .Select(s => s.Callsign!)
+            .ToListAsync();
+
+        var items = callsigns
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim().ToUpperInvariant())
+            .Where(c => c.Length >= 3)
+            .Select(c => c.Substring(0, 3))
+            .GroupBy(code => code)
+            .Select(g => new TopAirlineItemDto(
+                g.Key,
+                g.Count()))
+            .OrderByDescending(x => x.SessionCount)
+            .ThenBy(x => x.AirlineCode)
+            .Take(5)
+            .ToList();
+
+        return new TopAirlinesResponseDto(
+            range,
+            items);
+    }
+
     private async Task<AnalyticsActivityResponseDto> BuildHourlyAsync(DateTime utcNow)
     {
 

@@ -32,7 +32,7 @@ type Props = {
   debug?: boolean;
   constraintsMode?: "modal" | "page";
   trailEnabled?: boolean;
-  exactMode?: boolean;
+  swedenOnly?: boolean;
 };
 
 const FIT_VIEW = {
@@ -150,6 +150,17 @@ function getLatLon(p: TrailPointAny): { lat: number; lon: number } | null {
   return { lat, lon };
 }
 
+function getTimestampMs(p: TrailPointAny): number | null {
+  if (!p || typeof p !== "object" || Array.isArray(p)) return null;
+  const o = p as Record<string, unknown>;
+
+  const raw = o["timestampUtc"];
+  if (typeof raw !== "string") return null;
+
+  const ms = Date.parse(raw);
+  return Number.isNaN(ms) ? null : ms;
+}
+
 function pickPoints(res: unknown): TrailPointAny[] {
   if (!res || typeof res !== "object") return [];
   const r = res as Record<string, unknown>;
@@ -242,7 +253,7 @@ export default function InteractiveMap({
   debug = false,
   constraintsMode = "modal",
   trailEnabled = false,
-  exactMode = false,
+  swedenOnly = false,
 }: Props) {
   const MOBILE_SEARCH_HEADER_H = 44;
   const MOBILE_SEARCH_HEADER_PT = 0.5;
@@ -261,12 +272,6 @@ export default function InteractiveMap({
   const [visibleItems, setVisibleItems] = useState<MapActiveItem[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const trailCacheRef = useRef(
-    new Map<
-      number,
-      { line: GeoJsonFeatureCollection; pts: GeoJsonFeatureCollection }
-    >(),
-  );
   const trailReqSeqRef = useRef(0);
 
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -345,7 +350,7 @@ export default function InteractiveMap({
         setLastSnapshotUtc(json.lastSnapshotUtc);
 
         const rawItems = json.items ?? [];
-        const nextItems = exactMode
+        const nextItems = swedenOnly
           ? rawItems.filter((x) => x.inSweden === true)
           : rawItems;
 
@@ -358,7 +363,7 @@ export default function InteractiveMap({
         setFetchError(e instanceof Error ? e.message : String(e));
       }
     },
-    [exactMode],
+    [swedenOnly],
   );
 
   const setSourceData = useCallback(
@@ -557,12 +562,8 @@ export default function InteractiveMap({
       return;
     }
 
-    const cached = trailCacheRef.current.get(effectiveSelectedId);
-    if (cached) {
-      setSourceData("trail", cached.line);
-      setSourceData("trail-points", cached.pts);
-      return;
-    }
+    const i = selectedItem;
+    if (!i) return;
 
     const seq = (trailReqSeqRef.current += 1);
 
@@ -575,13 +576,17 @@ export default function InteractiveMap({
         if (trailReqSeqRef.current !== seq) return;
 
         const points = pickPoints(res);
-        const fcLine = buildTrailLineFC(points, effectiveSelectedId);
-        const fcPts = buildTrailPointsFC(points, effectiveSelectedId);
 
-        trailCacheRef.current.set(effectiveSelectedId, {
-          line: fcLine,
-          pts: fcPts,
-        });
+        const cutoffMs = Date.parse(i.lastSeenUtc);
+        const filteredPoints = Number.isNaN(cutoffMs)
+          ? points
+          : points.filter((p) => {
+              const pointMs = getTimestampMs(p);
+              return pointMs != null && pointMs <= cutoffMs;
+            });
+
+        const fcLine = buildTrailLineFC(filteredPoints, effectiveSelectedId);
+        const fcPts = buildTrailPointsFC(filteredPoints, effectiveSelectedId);
 
         setSourceData("trail", fcLine);
         setSourceData("trail-points", fcPts);
@@ -593,6 +598,7 @@ export default function InteractiveMap({
   }, [
     readyToken,
     effectiveSelectedId,
+    selectedItem,
     trailEnabled,
     clearTrailAll,
     setSourceData,

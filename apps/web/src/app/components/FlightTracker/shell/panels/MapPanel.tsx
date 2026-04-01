@@ -7,14 +7,14 @@ import type { FlightTrackerShellVariant } from "../FlightTrackerTabsShell";
 type Props = {
   variant: FlightTrackerShellVariant;
   trailEnabled: boolean;
-  exactMode: boolean;
+  swedenOnly: boolean;
   fitToken: number;
 };
 
 export function MapPanel({
   variant,
   trailEnabled,
-  exactMode,
+  swedenOnly,
   fitToken,
 }: Props) {
   return (
@@ -45,7 +45,7 @@ export function MapPanel({
           showHeader={false}
           constraintsMode={variant === "page" ? "page" : "modal"}
           trailEnabled={trailEnabled}
-          exactMode={exactMode}
+          swedenOnly={swedenOnly}
           fitToken={fitToken}
         />
       </Box>
