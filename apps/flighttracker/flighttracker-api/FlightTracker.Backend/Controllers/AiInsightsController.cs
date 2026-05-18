@@ -10,17 +10,7 @@ public sealed class AiInsightsController(AiTrafficBriefService aiTrafficBriefSer
     [HttpPost("traffic-brief")]
     public async Task<IActionResult> GenerateTrafficBrief(CancellationToken cancellationToken)
     {
-        try
-        {
-            var brief = await aiTrafficBriefService.GenerateAsync(cancellationToken);
-            return Ok(brief);
-        }
-        catch (Exception ex)
-        {
-            return Problem(
-                title: "Failed to generate traffic brief",
-                detail: ex.ToString(),
-                statusCode: 500);
-        }
+        var brief = await aiTrafficBriefService.GenerateAsync(cancellationToken);
+        return Ok(brief);
     }
 }
