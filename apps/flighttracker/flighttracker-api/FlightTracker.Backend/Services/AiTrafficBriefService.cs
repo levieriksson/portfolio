@@ -168,7 +168,8 @@ Return only data matching the provided schema.
             Bullets = aiBrief.Bullets.Take(5).ToList(),
             Confidence = NormalizeConfidence(aiBrief.Confidence),
             Caveats = aiBrief.Caveats.Count > 0 ? aiBrief.Caveats.Take(3).ToList() : facts.Caveats,
-            GeneratedAtUtc = generatedAtUtc
+            GeneratedAtUtc = generatedAtUtc,
+            Source = "openai"
         };
     }
 
@@ -468,7 +469,8 @@ Return only data matching the provided schema.
             Bullets = bullets,
             Confidence = facts.CurrentSessions < 10 ? "low" : "medium",
             Caveats = facts.Caveats,
-            GeneratedAtUtc = generatedAtUtc
+            GeneratedAtUtc = generatedAtUtc,
+            Source = "fallback"
         };
     }
 
