@@ -64,25 +64,27 @@ public sealed class AiTrafficBriefService
     }
 
     private async Task<PeakHour?> GetPeakHourAsync(
-        DateTime fromUtc,
-        CancellationToken cancellationToken)
+     DateTime fromUtc,
+     CancellationToken cancellationToken)
     {
-        var buckets = await _db.FlightSessions
+        var seenTimes = await _db.FlightSessions
             .AsNoTracking()
             .Where(s => s.LastSeenUtc >= fromUtc)
-            .GroupBy(s => new DateTime(
-                s.LastSeenUtc.Year,
-                s.LastSeenUtc.Month,
-                s.LastSeenUtc.Day,
-                s.LastSeenUtc.Hour,
+            .Select(s => s.LastSeenUtc)
+            .ToListAsync(cancellationToken);
+
+        return seenTimes
+            .GroupBy(t => new DateTime(
+                t.Year,
+                t.Month,
+                t.Day,
+                t.Hour,
                 0,
                 0,
                 DateTimeKind.Utc))
             .Select(g => new PeakHour(g.Key, g.Count()))
             .OrderByDescending(x => x.SessionCount)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        return buckets;
+            .FirstOrDefault();
     }
 
     private async Task<IReadOnlyList<TopAirline>> GetTopAirlinesAsync(
