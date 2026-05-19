@@ -116,32 +116,62 @@ Do not claim the data represents complete gate-to-gate flights.
 Do not use forecast, projected, predicted, expected, or other future-looking language.
 All provided metrics are observed historical or current values.
 
+Write for a non-technical viewer.
+
 Do not simply restate raw metrics line by line.
+Do not convert every input field into a sentence.
+Choose only the 3–5 most useful observations.
+
 Focus on interpretation, trends, and notable observations.
-Use exact numbers sparingly and only when they add value.
-Each bullet should communicate an insight, not a metric dump.
+Use exact numbers sparingly and only when they improve readability.
+
+Do not write database-style or dashboard-style bullets.
+Do not format bullets as labels followed by values.
+
+Avoid phrases like:
+- current sessions total
+- session count
+- analytics overview
+- aviation summary
+- registered
+- recorded
+- contributions
+- traffic analytics overview
+
+Prefer natural language observations.
+
+Bad bullet:
+"Current sessions total 4,752, marking a 28.6% increase."
+
+Good bullet:
+"Traffic is noticeably busier than the previous 24 hours, rising by about 29%."
+
+Bad bullet:
+"Peak traffic occurs at 16:00 with 309 sessions."
+
+Good bullet:
+"Traffic built through the day and peaked around 16:00."
+
+Bad headline:
+"Traffic Analytics Overview for Aviation Sessions"
+
+Good headline:
+"Traffic up 29% vs previous 24h, peaking at 16:00"
+
+The headline must:
+- be short
+- be informative
+- communicate the most important observation at a glance
+- work well when shown in a collapsed UI component
+- not be generic
+
+Use 24-hour time format (for example 16:00, not 4 PM).
 
 Use clear, professional English.
-Do not produce malformed, incomplete, or awkward sentences.
+Do not produce malformed, awkward, incomplete, or robotic sentences.
 Every bullet must be grammatically correct and self-contained.
 
-Use 24-hour time format (for example 17:00, not 5 PM).
-
-The headline must be a short, informative one-line summary (max ~80 characters).
-It should communicate the most important traffic insight at a glance.
-The headline should be useful when shown in a collapsed UI component.
-
-Good headline examples:
-- Traffic up 30% vs previous 24h, peaking at 17:00
-- Regional traffic noticeably higher than the previous period
-- SAS leads observed traffic during a high-activity day
-
-Bad headline examples:
-- Traffic Insights
-- 24-Hour Aviation Summary
-- Analytics Overview
-
-This summary should feel like a product insight, not a database report.
+This should feel like a polished product insight, not a database report.
 
 Return only data matching the provided schema.
 """
@@ -150,11 +180,13 @@ Return only data matching the provided schema.
                 {
                     role = "user",
                     content = $$"""
-                    Create an AI traffic brief from this analytics snapshot.
+Prioritize readability over completeness.
+Select the most useful insights instead of mentioning every metric.
+Explain what a user should notice from the data.
 
-                    Analytics snapshot:
-                    {{JsonSerializer.Serialize(ToPromptPayload(facts), JsonOptions)}}
-                    """
+Analytics snapshot:
+{{JsonSerializer.Serialize(ToPromptPayload(facts), JsonOptions)}}
+"""
                 }
             }
         };
@@ -170,8 +202,7 @@ Return only data matching the provided schema.
 
         if (!response.IsSuccessStatusCode)
         {
-            var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException(error);
+            return null;
         }
 
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -183,12 +214,8 @@ Return only data matching the provided schema.
 
         var aiBrief = JsonSerializer.Deserialize<AiBriefModelResponse>(content, JsonOptions);
 
-        if (aiBrief is null ||
-            string.IsNullOrWhiteSpace(aiBrief.Headline) ||
-            aiBrief.Bullets.Count < 3)
-        {
+        if (!IsUsableAiBrief(aiBrief))
             return null;
-        }
 
         return new AiTrafficBriefResponseDto
         {
@@ -199,6 +226,65 @@ Return only data matching the provided schema.
             GeneratedAtUtc = generatedAtUtc,
             Source = "openai"
         };
+    }
+
+    private static bool IsUsableAiBrief(AiBriefModelResponse? aiBrief)
+    {
+        if (aiBrief is null ||
+            string.IsNullOrWhiteSpace(aiBrief.Headline) ||
+            aiBrief.Bullets.Count < 3)
+        {
+            return false;
+        }
+
+        var bannedHeadlineTerms = new[]
+        {
+            "overview",
+            "summary",
+            "analytics",
+            "aviation sessions"
+        };
+
+        if (bannedHeadlineTerms.Any(term =>
+                aiBrief.Headline.Contains(term, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        var badBulletStarts = new[]
+        {
+            "current sessions",
+            "session count",
+            "peak traffic occurs",
+            "top airlines by",
+            "top airline session",
+            "current active sessions"
+        };
+
+        if (aiBrief.Bullets.Any(b =>
+                badBulletStarts.Any(prefix =>
+                    b.Trim().StartsWith(prefix, StringComparison.OrdinalIgnoreCase))))
+        {
+            return false;
+        }
+
+        var bannedBulletTerms = new[]
+        {
+            "forecast",
+            "forecasted",
+            "projected",
+            "predicted",
+            "expected"
+        };
+
+        if (aiBrief.Bullets.Any(b =>
+                bannedBulletTerms.Any(term =>
+                    b.Contains(term, StringComparison.OrdinalIgnoreCase))))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private async Task<TrafficBriefFacts> BuildFactsAsync(
