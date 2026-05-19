@@ -75,6 +75,7 @@ builder.Services.AddDbContext<FlightDbContext>(options =>
     options.UseNpgsql(connectionString, x => x.MigrationsAssembly("FlightTracker.Data")));
 
 builder.Services.AddHttpClient("opensky");
+builder.Services.AddHttpClient<AiTrafficBriefService>();
 
 builder.Services.ConfigureHttpJsonOptions(o =>
 {

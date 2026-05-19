@@ -154,3 +154,12 @@ export type AnalyticsChangeResponseDto = {
   previousSessions: number;
   percentChange: number | null;
 };
+
+export type AiTrafficBriefResponseDto = {
+  headline: string;
+  bullets: string[];
+  confidence: string;
+  caveats: string[];
+  generatedAtUtc: string;
+  source: "openai" | "fallback";
+};

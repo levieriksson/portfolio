@@ -121,6 +121,8 @@ jobs:
               ConnectionStrings__FlightDb="$CONN_STR" \
               OPENSKY_USERNAME="${{ secrets.OPENSKY_USERNAME }}" \
               OPENSKY_PASSWORD="${{ secrets.OPENSKY_PASSWORD }}" \
+              OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+              OpenAI__Model="gpt-4o-mini" \
               Features__AutoMigrate="false" \
               Features__EnableIngestionHostedServices="false" \
               Features__EnableSwagger="false" \
