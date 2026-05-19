@@ -35,6 +35,7 @@ import { TopAirlinesCard } from "./stats/TopAirlinesCard";
 import { ActivityChangeCard } from "./stats/ActivityChangeCard";
 import { PeakHoursCard } from "./stats/PeakHoursCard";
 import { BusiestDayCard } from "./stats/BusiestDayCard";
+import { AiTrafficBriefCard } from "./stats/AiTrafficBriefCard";
 
 const RADIUS = 1;
 
@@ -273,6 +274,7 @@ export function StatsPanel({
           )}
         </Box>
       )}
+      {variant === "page" && <AiTrafficBriefCard borderRadius={RADIUS} />}
       {variant === "page" && activity24 && (
         <ActivityCharts
           title="Activity (last 24h)"
